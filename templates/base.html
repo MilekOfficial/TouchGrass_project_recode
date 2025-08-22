@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>TouchGrass</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+  </head>
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-green shadow">
+      <div class="container-fluid">
+        <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">🌱 TouchGrass</a>
+        <div>
+          {% if 'user_id' in session %}
+            <a href="{{ url_for('user_profile', username=session['username']) }}" class="btn btn-sm btn-light me-2">Profile</a>
+            <a href="{{ url_for('notifications') }}" class="btn btn-sm btn-light me-2 position-relative">Notifications
+              {% if unread_notifications_count > 0 %}
+                <span class="notif-dot"></span>
+              {% endif %}
+            </a>
+            <a href="{{ url_for('settings') }}" class="btn btn-sm btn-light me-2">Settings</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-sm btn-outline-light">Logout</a>
+          {% else %}
+            <a href="{{ url_for('login') }}" class="btn btn-sm btn-light">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-sm btn-outline-light">Register</a>
+          {% endif %}
+        </div>
+      </div>
+    </nav>
+    <div class="container mt-4">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="alert alert-warning">{{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </body>
+</html>

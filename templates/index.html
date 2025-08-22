@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block content %}
+  {% if 'user_id' in session %}
+  <form action="{{ url_for('post') }}" method="post" class="mb-4">
+    <textarea class="form-control" name="content" placeholder="What's up?" required></textarea>
+    <button class="btn btn-green mt-2">Post</button>
+  </form>
+  {% endif %}
+
+  {% for post in posts %}
+  <div class="card mb-3 shadow-sm">
+    <div class="card-header">
+      <a href="{{ url_for('user_profile', username=post['author']) }}">{{ post['author'] }}</a>
+      <small class="text-muted"> • {{ time_ago(post['created_at']) }}</small>
+    </div>
+    <div class="card-body">
+      <p>{{ post['content'] }}</p>
+
+      <!-- Like button -->
+      <form action="{{ url_for('react', post_id=post['_id'], emoji='❤️') }}" method="post" style="display:inline;">
+        <button class="btn btn-sm">❤️ {{ post['reactions'].get('❤️',0) }}</button>
+      </form>
+
+      <!-- Emoji buttons -->
+      {% for emoji in ['🔥','😂','👍','🌱'] %}
+      <form action="{{ url_for('react', post_id=post['_id'], emoji=emoji) }}" method="post" style="display:inline;">
+        <button class="btn btn-sm">{{ emoji }} {{ post['reactions'][emoji] }}</button>
+      </form>
+      {% endfor %}
+
+      <hr>
+      <h6>Comments:</h6>
+      {% for c in post['comments'] %}
+        <p><strong>{{ c['username'] }}</strong>: {{ c['text'] }}</p>
+      {% endfor %}
+      {% if 'user_id' in session %}
+      <form action="{{ url_for('comment', post_id=post['_id']) }}" method="post">
+        <input class="form-control" name="comment" placeholder="Add a comment">
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% endblock %}

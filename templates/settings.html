@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h3>User Settings</h3>
+  <form method="post" class="mt-3">
+    <div class="mb-3">
+      <label class="form-label">Avatar URL</label>
+      <input class="form-control" name="avatar_url" value="{{ user.get('avatar_url', '') }}" placeholder="https://...">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Bio</label>
+      <textarea class="form-control" name="bio" rows="3" placeholder="Tell people about yourself...">{{ user.get('bio', '') }}</textarea>
+    </div>
+    <button class="btn btn-green">Save</button>
+  </form>
+{% endblock %}

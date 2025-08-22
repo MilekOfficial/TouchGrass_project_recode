@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+  <div class="d-flex align-items-center mb-3">
+    <img src="{{ user.get('avatar_url') or 'https://via.placeholder.com/64x64.png?text=%F0%9F%8C%B1' }}" alt="avatar" class="rounded-circle me-3" width="64" height="64">
+    <div>
+      <h3 class="mb-0">{{ user['username'] }}</h3>
+      <small class="text-muted">{{ user.get('bio', '') }}</small>
+      <div>
+        <span class="me-3"><strong>{{ followers_count }}</strong> Followers</span>
+        <span class="me-3"><strong>{{ following_count }}</strong> Following</span>
+      </div>
+    </div>
+    <div class="ms-auto">
+      {% if 'user_id' in session and session['username'] != user['username'] %}
+        {% if is_following %}
+          <form action="{{ url_for('unfollow_user', username=user['username']) }}" method="post">
+            <button class="btn btn-outline-secondary btn-sm">Unfollow</button>
+          </form>
+        {% else %}
+          <form action="{{ url_for('follow_user', username=user['username']) }}" method="post">
+            <button class="btn btn-green btn-sm">Follow</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <hr>
+  {% for post in posts %}
+    <div class="card mb-3 shadow-sm">
+      <div class="card-body">
+        <p>{{ post['content'] }}</p>
+        <small class="text-muted">{{ time_ago(post['created_at']) }}</small>
+      </div>
+    </div>
+  {% else %}
+    <p>No posts yet 🌱</p>
+  {% endfor %}
+{% endblock %}

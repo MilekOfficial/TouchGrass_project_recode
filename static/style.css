@@ -1,0 +1,16 @@
+.bg-green { background-color: #228B22 !important; }
+.btn-green { background-color: #228B22; border: none; color: white; }
+.btn-green:hover { background-color: #1d7a1d; color: white; }
+.card-header { background-color: #f0f9f0; font-weight: bold; }
+
+/* Red dot indicator for unread notifications */
+.notif-dot {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 10px;
+  height: 10px;
+  background-color: #dc3545; /* Bootstrap danger */
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #ffffff; /* ring to separate from button */
+}
