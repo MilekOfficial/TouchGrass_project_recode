@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Search Results for "{{ query }}"</h2>
+    
+    {% if not posts and not users %}
+        <div class="alert alert-info mt-4">No results found for "{{ query }}"</div>
+    {% endif %}
+    
+    {% if users %}
+    <div class="mb-5">
+        <h4>Users</h4>
+        <div class="list-group">
+            {% for user in users %}
+            <a href="{{ url_for('user_profile', username=user.username) }}" class="list-group-item list-group-item-action">
+                <div class="d-flex align-items-center">
+                    {% if user.avatar_url %}
+                    <img src="{{ user.avatar_url }}" alt="{{ user.username }}" class="rounded-circle me-3" width="40" height="40">
+                    {% else %}
+                    <div class="rounded-circle bg-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; color: white;">
+                        {{ user.username[0]|upper }}
+                    </div>
+                    {% endif %}
+                    <div>
+                        <h6 class="mb-0">{{ user.username }}</h6>
+                        {% if user.bio %}
+                        <small class="text-muted">{{ user.bio|truncate(50) }}</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if posts %}
+    <div>
+        <h4>Posts</h4>
+        {% for post in posts %}
+        <div class="card mb-3 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{{ url_for('user_profile', username=post['author']) }}">{{ post['author'] }}</a>
+                    <small class="text-muted"> • {{ time_ago(post['created_at']) }}</small>
+                </div>
+            </div>
+            <div class="card-body">
+                <p>{{ post['content'] }}</p>
+                <div class="mt-2">
+                    <a href="{{ url_for('index') }}#post-{{ post['_id'] }}" class="btn btn-sm btn-outline-primary">
+                        View Post
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

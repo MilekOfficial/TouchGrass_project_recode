@@ -1,44 +1,110 @@
 {% extends 'base.html' %}
+
 {% block content %}
   {% if 'user_id' in session %}
-  <form action="{{ url_for('post') }}" method="post" class="mb-4">
-    <textarea class="form-control" name="content" placeholder="What's up?" required></textarea>
-    <button class="btn btn-green mt-2">Post</button>
-  </form>
-  {% endif %}
-
-  {% for post in posts %}
-  <div class="card mb-3 shadow-sm">
-    <div class="card-header">
-      <a href="{{ url_for('user_profile', username=post['author']) }}">{{ post['author'] }}</a>
-      <small class="text-muted"> • {{ time_ago(post['created_at']) }}</small>
-    </div>
+  <div class="card mb-4 shadow-sm">
     <div class="card-body">
-      <p>{{ post['content'] }}</p>
-
-      <!-- Like button -->
-      <form action="{{ url_for('react', post_id=post['_id'], emoji='❤️') }}" method="post" style="display:inline;">
-        <button class="btn btn-sm">❤️ {{ post['reactions'].get('❤️',0) }}</button>
+      <form action="{{ url_for('post') }}" method="post">
+        <div class="form-group">
+          <textarea class="form-control" name="content" rows="3" placeholder="What's on your mind?" required></textarea>
+          <small class="form-text text-muted">Use #hashtags to categorize your post</small>
+        </div>
+        <div class="mt-2 d-flex justify-content-between align-items-center">
+          <div class="emoji-picker">
+            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('😊')">😊</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('👍')">👍</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('❤️')">❤️</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('😂')">😂</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertEmoji('🌱')">🌱</button>
+          </div>
+          <button type="submit" class="btn btn-primary">Post</button>
+        </div>
       </form>
-
-      <!-- Emoji buttons -->
-      {% for emoji in ['🔥','😂','👍','🌱'] %}
-      <form action="{{ url_for('react', post_id=post['_id'], emoji=emoji) }}" method="post" style="display:inline;">
-        <button class="btn btn-sm">{{ emoji }} {{ post['reactions'][emoji] }}</button>
-      </form>
-      {% endfor %}
-
-      <hr>
-      <h6>Comments:</h6>
-      {% for c in post['comments'] %}
-        <p><strong>{{ c['username'] }}</strong>: {{ c['text'] }}</p>
-      {% endfor %}
-      {% if 'user_id' in session %}
-      <form action="{{ url_for('comment', post_id=post['_id']) }}" method="post">
-        <input class="form-control" name="comment" placeholder="Add a comment">
-      </form>
-      {% endif %}
     </div>
   </div>
-  {% endfor %}
+  {% endif %}
+
+  <div id="posts-container" class="infinite-scroll">
+    {% include '_post_items.html' %}
+    
+    {% if has_more %}
+    <div class="d-none">
+      <a class="pagination__next" href="{{ url_for('index', page=next_page) }}"></a>
+    </div>
+    {% endif %}
+  </div>
+  
+  <div class="scroller-status">
+    <div class="infinite-scroll-request text-center my-4">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+    <p class="infinite-scroll-last text-muted text-center my-4">No more posts to load</p>
+    <p class="infinite-scroll-error text-muted text-center my-4">No more posts to load</p>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize infinite scroll
+const postsContainer = document.querySelector('.infinite-scroll');
+if (postsContainer) {
+  new InfiniteScroll(postsContainer, {
+    path: '.pagination__next',
+    append: '.post-item',
+    status: '.scroller-status',
+    history: false,
+    prefill: true,
+    responseType: 'document',
+    loadOnScroll: true,
+    button: '.view-more-button',
+    scrollThreshold: 100,
+    debug: false
+  });
+}
+
+// Helper function to insert emoji at cursor position
+function insertEmoji(emoji) {
+  const textarea = document.querySelector('textarea[name="content"]');
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const before = text.substring(0, start);
+  const after = text.substring(end, text.length);
+  textarea.value = before + emoji + after;
+  textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+  textarea.focus();
+}
+
+// Convert hashtags to links in new content
+document.addEventListener('DOMContentLoaded', function() {
+  // Initial conversion for static content
+  document.querySelectorAll('.post-content, .comment-text').forEach(element => {
+    element.innerHTML = element.innerHTML.replace(
+      /#(\w+)/g, 
+      '<a href="/hashtag/$1" class="text-decoration-none">#$1</a>'
+    );
+  });
+  
+  // Handle dynamically loaded content
+  const observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      mutation.addedNodes.forEach(function(node) {
+        if (node.nodeType === 1) { // Element node
+          node.querySelectorAll('.post-content, .comment-text').forEach(element => {
+            element.innerHTML = element.innerHTML.replace(
+              /#(\w+)/g, 
+              '<a href="/hashtag/$1" class="text-decoration-none">#$1</a>'
+            );
+          });
+        }
+      });
+    });
+  });
+  
+  // Start observing the document with the configured parameters
+  observer.observe(document.body, { childList: true, subtree: true });
+});
+</script>
 {% endblock %}

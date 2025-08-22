@@ -26,6 +26,14 @@ except Exception:
     # Index creation failures shouldn't crash the app in dev
     pass
 
+DEFAULT_BADGES = {
+    'early_adopter': False,
+    'verified': False,
+    'premium': False,
+    'moderator': False,
+    'admin': False
+}
+
 def time_ago(dt):
     from datetime import datetime, timezone
 
@@ -77,6 +85,35 @@ def inject_unread_notifications():
         count = 0
     return {"unread_notifications_count": count}
 
+@app.context_processor
+def inject_globals():
+    def get_user_preferences(username):
+        if not username:
+            return {'dark_mode': False}
+        user = users_col.find_one(
+            {"username": username},
+            {"dark_mode": 1, "badges": 1, "_id": 0}
+        )
+        return user or {'dark_mode': False}
+    
+    # Get notification count if user is logged in
+    notification_count = 0
+    if 'user_id' in session:
+        notification_count = notifications_col.count_documents({
+            'to_user_id': ObjectId(session['user_id']),
+            'read': False
+        })
+    
+    return {
+        'get_user_preferences': get_user_preferences,
+        'current_user': session.get('username'),
+        'notification_count': {'unread_notifications_count': notification_count},
+        'users_col': users_col,
+        'posts_col': posts_col,
+        'follows_col': follows_col,
+        'notifications_col': notifications_col
+    }
+
 @app.route("/")
 def index():
     posts = list(posts_col.find().sort("created_at", -1))
@@ -92,12 +129,24 @@ def register():
     if request.method == "POST":
         username = request.form["username"]
         password = generate_password_hash(request.form["password"])
+        
         if users_col.find_one({"username": username}):
-            flash("User already exists")
+            flash("Username already taken")
             return redirect(url_for("register"))
-        users_col.insert_one({"username": username, "password": password})
-        flash("Registered successfully, please login")
-        return redirect(url_for("login"))
+            
+        user = {
+            "username": username,
+            "password": password,
+            "created_at": datetime.now(timezone.utc),
+            "dark_mode": False,
+            "badges": DEFAULT_BADGES.copy(),
+            "bio": "",
+            "avatar_url": ""
+        }
+        users_col.insert_one(user)
+        session["user_id"] = str(user["_id"])
+        session["username"] = username
+        return redirect(url_for("index"))
     return render_template("register.html")
 
 @app.route("/login", methods=["GET", "POST"])
@@ -122,14 +171,22 @@ def logout():
 def post():
     if "user_id" not in session:
         return redirect(url_for("login"))
+        
     content = request.form["content"]
-    posts_col.insert_one({
+    
+    # Extract hashtags
+    hashtags = list(set(part[1:] for part in content.split() if part.startswith('#')))
+    
+    post_data = {
         "author": session["username"],
         "content": content,
+        "hashtags": hashtags,
         "created_at": datetime.now(timezone.utc),
         "reactions": {},
         "comments": []
-    })
+    }
+    
+    posts_col.insert_one(post_data)
     return redirect(url_for("index"))
 
 @app.route("/react/<post_id>/<emoji>", methods=["POST"])
@@ -264,6 +321,182 @@ def settings():
         flash("Settings updated")
         return redirect(url_for("settings"))
     return render_template("settings.html", user=user)
+
+@app.route("/post/delete/<post_id>", methods=["POST"])
+def delete_post(post_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    try:
+        oid = ObjectId(post_id)
+        post = posts_col.find_one({"_id": oid})
+        
+        # Check if the current user is the author of the post
+        if not post or post["author"] != session["username"]:
+            flash("You can only delete your own posts")
+            return redirect(url_for("index"))
+            
+        posts_col.delete_one({"_id": oid})
+        flash("Post deleted successfully")
+    except Exception as e:
+        flash("Error deleting post")
+        
+    return redirect(url_for("index"))
+
+@app.route("/post/edit/<post_id>", methods=["GET", "POST"])
+def edit_post(post_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+        
+    try:
+        oid = ObjectId(post_id)
+        post = posts_col.find_one({"_id": oid})
+        
+        # Check if the current user is the author of the post
+        if not post or post["author"] != session["username"]:
+            flash("You can only edit your own posts")
+            return redirect(url_for("index"))
+            
+        if request.method == "POST":
+            new_content = request.form["content"]
+            posts_col.update_one(
+                {"_id": oid},
+                {"$set": {"content": new_content, "edited_at": datetime.now(timezone.utc)}}
+            )
+            flash("Post updated successfully")
+            return redirect(url_for("index"))
+            
+        return render_template("edit_post.html", post=post)
+        
+    except Exception as e:
+        flash("Error editing post")
+        return redirect(url_for("index"))
+
+@app.route("/comment/delete/<post_id>/<int:comment_index>", methods=["POST"])
+def delete_comment(post_id, comment_index):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+        
+    try:
+        oid = ObjectId(post_id)
+        post = posts_col.find_one({"_id": oid})
+        
+        if not post or comment_index >= len(post.get("comments", [])):
+            flash("Comment not found")
+            return redirect(url_for("index"))
+            
+        comment = post["comments"][comment_index]
+        
+        # Check if the current user is the author of the comment or the post
+        if comment["username"] != session["username"] and post["author"] != session["username"]:
+            flash("You can only delete your own comments")
+            return redirect(url_for("index"))
+            
+        # Remove the comment by index
+        posts_col.update_one(
+            {"_id": oid},
+            {"$unset": {f"comments.{comment_index}": ""}}
+        )
+        
+        # Clean up the null values in the array
+        posts_col.update_one(
+            {"_id": oid},
+            [{"$set": {"comments": {"$ifNull": [{"$filter": {"input": "$comments", "cond": {"$ne": ["$$this", None]}}}, []]}}}]
+        )
+        
+        flash("Comment deleted successfully")
+        
+    except Exception as e:
+        flash("Error deleting comment")
+        
+    return redirect(url_for("index"))
+
+@app.route("/comment/edit/<post_id>/<int:comment_index>", methods=["GET", "POST"])
+def edit_comment(post_id, comment_index):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+        
+    try:
+        oid = ObjectId(post_id)
+        post = posts_col.find_one({"_id": oid})
+        
+        if not post or comment_index >= len(post.get("comments", [])):
+            flash("Comment not found")
+            return redirect(url_for("index"))
+            
+        comment = post["comments"][comment_index]
+        
+        # Check if the current user is the author of the comment
+        if comment["username"] != session["username"]:
+            flash("You can only edit your own comments")
+            return redirect(url_for("index"))
+            
+        if request.method == "POST":
+            new_text = request.form["comment"]
+            
+            # Update the specific comment
+            posts_col.update_one(
+                {"_id": oid},
+                {"$set": {f"comments.{comment_index}.text": new_text, f"comments.{comment_index}.edited": True}}
+            )
+            
+            flash("Comment updated successfully")
+            return redirect(url_for("index"))
+            
+        return render_template("edit_comment.html", 
+                             post_id=post_id, 
+                             comment_index=comment_index,
+                             comment=comment)
+        
+    except Exception as e:
+        flash("Error editing comment")
+        return redirect(url_for("index"))
+
+@app.route("/search")
+def search():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return redirect(url_for('index'))
+        
+    # Search in posts
+    post_results = list(posts_col.find({
+        "$or": [
+            {"content": {"$regex": query, "$options": "i"}},
+            {"author": {"$regex": query, "$options": "i"}}
+        ]
+    }).sort("created_at", -1))
+    
+    # Search for users
+    user_results = list(users_col.find({
+        "username": {"$regex": query, "$options": "i"}
+    }, {"password": 0}))  # Don't return passwords
+    
+    return render_template(
+        "search.html",
+        query=query,
+        posts=post_results,
+        users=user_results
+    )
+
+@app.route("/toggle_dark_mode", methods=["POST"])
+def toggle_dark_mode():
+    if "user_id" not in session:
+        return "Unauthorized", 401
+    
+    current_oid = _current_user_id()
+    user = users_col.find_one({"_id": current_oid})
+    new_mode = not user.get("dark_mode", False)
+    
+    users_col.update_one(
+        {"_id": current_oid},
+        {"$set": {"dark_mode": new_mode}}
+    )
+    
+    return "", 204
+
+@app.route("/hashtag/<hashtag>")
+def view_hashtag(hashtag):
+    posts = list(posts_col.find({"hashtags": hashtag.lower()}).sort("created_at", -1))
+    return render_template("hashtag.html", hashtag=hashtag, posts=posts)
 
 if __name__ == "__main__":
     app.run(debug=True)
