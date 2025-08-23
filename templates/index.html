@@ -4,11 +4,23 @@
   {% if 'user_id' in session %}
   <div class="card mb-4 shadow-sm">
     <div class="card-body">
-      <form action="{{ url_for('post') }}" method="post">
+      <form action="{{ url_for('post') }}" method="post" enctype="multipart/form-data">
         <div class="form-group">
           <textarea class="form-control" name="content" rows="3" placeholder="What's on your mind?" required></textarea>
           <small class="form-text text-muted">Use #hashtags to categorize your post</small>
         </div>
+        
+        <!-- Image Upload Field -->
+        <div class="mb-3">
+          <label for="post_image" class="form-label">Add an image (optional):</label>
+          <input class="form-control" type="file" id="post_image" name="post_image" accept="image/*">
+          <div class="form-text">Max size: 10MB. Supported formats: JPG, PNG, GIF</div>
+          <div id="imagePreview" class="mt-2 d-none">
+            <img id="previewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 200px;">
+            <button type="button" class="btn btn-sm btn-danger mt-2" onclick="clearImage()">Remove Image</button>
+          </div>
+        </div>
+        
         <div class="mt-2 d-flex justify-content-between align-items-center">
           <div class="emoji-picker">
             <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('😊')">😊</button>
@@ -106,5 +118,28 @@ document.addEventListener('DOMContentLoaded', function() {
   // Start observing the document with the configured parameters
   observer.observe(document.body, { childList: true, subtree: true });
 });
+
+// Add event listener to image input field
+document.getElementById('post_image').addEventListener('change', function() {
+  const imagePreview = document.getElementById('imagePreview');
+  const imagePreviewContainer = document.getElementById('imagePreview');
+  const file = this.files[0];
+  const reader = new FileReader();
+  
+  reader.onload = function(event) {
+    imagePreview.src = event.target.result;
+    imagePreviewContainer.classList.remove('d-none');
+  };
+  
+  reader.readAsDataURL(file);
+});
+
+// Function to clear image preview
+function clearImage() {
+  const imagePreview = document.getElementById('imagePreview');
+  const imagePreviewContainer = document.getElementById('imagePreview');
+  imagePreview.src = '#';
+  imagePreviewContainer.classList.add('d-none');
+}
 </script>
 {% endblock %}

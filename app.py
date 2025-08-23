@@ -4,9 +4,13 @@ from bson import ObjectId
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "supersecret"
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key')
 
 # Connect to MongoDB (replace with your own connection string if needed)
 client = MongoClient(
@@ -198,6 +202,16 @@ def post():
         
     content = request.form["content"]
     
+    # Handle image upload
+    image_url = None
+    if 'post_image' in request.files:
+        image_file = request.files['post_image']
+        if image_file.filename != '':
+            from image_utils import upload_to_imgbb
+            upload_result = upload_to_imgbb(image_file)
+            if upload_result:
+                image_url = upload_result['url']
+    
     # Extract hashtags
     hashtags = list(set(part[1:] for part in content.split() if part.startswith('#')))
     
@@ -207,7 +221,8 @@ def post():
         "hashtags": hashtags,
         "created_at": datetime.now(timezone.utc),
         "reactions": {},
-        "comments": []
+        "comments": [],
+        "image_url": image_url  # Add image URL to post data
     }
     
     posts_col.insert_one(post_data)
@@ -561,30 +576,44 @@ def update_profile():
         flash("User not found")
         return redirect(url_for("index"))
     
-    # Handle file upload for cover photo
+    update_data = {}
+    
+    # Handle profile picture upload
+    if 'profile_pic' in request.files:
+        file = request.files['profile_pic']
+        if file.filename != '':
+            from image_utils import upload_to_imgbb
+            upload_result = upload_to_imgbb(file, f"profile_{user['_id']}")
+            if upload_result:
+                update_data['profile_pic'] = upload_result['url']
+    
+    # Handle cover photo upload
     if 'cover_photo' in request.files:
         file = request.files['cover_photo']
         if file.filename != '':
-            # Save the file to the static/uploads directory
-            filename = f"cover_{user['_id']}.jpg"
-            filepath = os.path.join("static", "uploads", filename)
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
-            file.save(filepath)
-            # Update user's cover photo path
-            users_col.update_one(
-                {"_id": user["_id"]},
-                {"$set": {"cover_photo": url_for('static', filename=f'uploads/{filename}')}}
-            )
+            from image_utils import upload_to_imgbb
+            upload_result = upload_to_imgbb(file, f"cover_{user['_id']}")
+            if upload_result:
+                update_data['cover_photo'] = upload_result['url']
     
     # Update location if provided
     location = request.form.get('location')
     if location is not None:
+        update_data['location'] = location
+    
+    # Update bio if provided
+    bio = request.form.get('bio')
+    if bio is not None:
+        update_data['bio'] = bio
+    
+    # Update user data if there are any changes
+    if update_data:
         users_col.update_one(
             {"_id": user["_id"]},
-            {"$set": {"location": location}}
+            {"$set": update_data}
         )
+        flash("Profile updated successfully!")
     
-    flash("Profile updated successfully!")
     return redirect(url_for("user_profile", username=user["username"]))
 
 @app.route("/admin/badges", methods=["GET", "POST"])

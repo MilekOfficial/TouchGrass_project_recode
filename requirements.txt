@@ -1,6 +1,7 @@
-Flask==2.3.3
-pymongo==4.5.0
-python-dotenv==1.0.0
+flask
+pymongo
+python-dotenv
+requests
 Werkzeug==2.3.7
 itsdangerous==2.1.2
 Jinja2==3.1.2
