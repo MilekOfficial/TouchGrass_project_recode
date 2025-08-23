@@ -15,7 +15,7 @@
           {% else %}
             <div>New notification.</div>
           {% endif %}
-          <small class="text-muted">{{ time_ago(n['created_at']) }}</small>
+          <small class="text-muted">{{ n['created_at']|time_ago if n['created_at'] else '' }}</small>
         </div>
         {% if not n.get('read') %}
           <span class="badge bg-secondary">new</span>

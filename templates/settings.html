@@ -1,15 +1,113 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
 {% block content %}
-  <h3>User Settings</h3>
-  <form method="post" class="mt-3">
-    <div class="mb-3">
-      <label class="form-label">Avatar URL</label>
-      <input class="form-control" name="avatar_url" value="{{ user.get('avatar_url', '') }}" placeholder="https://...">
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Profile Settings</h3>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleDarkMode()" id="themeToggle">
+                        <i class="bi bi-moon-fill"></i> Dark Mode
+                    </button>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <!-- Cover Photo -->
+                        <div class="mb-4">
+                            <div class="position-relative mb-3" style="height: 200px; overflow: hidden; border-radius: 8px; background-color: #f0f0f0;">
+                                <img src="{{ user.cover_photo if user.cover_photo else url_for('static', filename='default_cover.jpg') }}" 
+                                     class="img-fluid w-100 h-100" 
+                                     style="object-fit: cover;"
+                                     id="coverPreview">
+                            </div>
+                            <div class="mb-3">
+                                <label for="cover_photo" class="form-label">Cover Photo URL</label>
+                                <input type="url" class="form-control" id="cover_photo" name="cover_photo" 
+                                       value="{{ user.cover_photo if user.cover_photo else '' }}" 
+                                       placeholder="https://example.com/cover.jpg"
+                                       oninput="document.getElementById('coverPreview').src = this.value || '{{ url_for('static', filename='default_cover.jpg') }}'">
+                                <div class="form-text">Paste a direct image URL for your cover photo</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Profile Picture -->
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="position-relative" style="width: 100px; height: 100px;">
+                                <img src="{{ user.avatar_url if user.avatar_url else url_for('static', filename='default_profile.png') }}" 
+                                     class="rounded-circle border border-3 border-white" 
+                                     style="width: 100%; height: 100%; object-fit: cover;"
+                                     id="profilePreview">
+                            </div>
+                            <div class="ms-3">
+                                <h4 class="mb-0">{{ user.username }}</h4>
+                                <div class="mt-1">
+                                    {% for badge, active in user.badges.items() %}
+                                        {% if active %}
+                                            <span class="badge bg-{{ 'primary' if badge == 'admin' else 'success' }} me-1">
+                                                {{ badge|title }}
+                                            </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Profile Picture URL -->
+                        <div class="mb-3">
+                            <label for="avatar_url" class="form-label">Profile Picture URL</label>
+                            <input type="url" class="form-control" id="avatar_url" name="avatar_url" 
+                                   value="{{ user.avatar_url if user.avatar_url else '' }}" 
+                                   placeholder="https://example.com/avatar.jpg"
+                                   oninput="document.getElementById('profilePreview').src = this.value || '{{ url_for('static', filename='default_profile.png') }}'">
+                            <div class="form-text">Paste a direct image URL for your profile picture</div>
+                        </div>
+
+                        <!-- Bio -->
+                        <div class="mb-3">
+                            <label for="bio" class="form-label">Bio</label>
+                            <textarea class="form-control" id="bio" name="bio" rows="3" 
+                                      placeholder="Tell us about yourself..." maxlength="500">{{ user.bio if user.bio else '' }}</textarea>
+                            <div class="form-text">Max 500 characters</div>
+                        </div>
+
+                        <!-- Location -->
+                        <div class="mb-3">
+                            <label for="location" class="form-label">Location</label>
+                            <input type="text" class="form-control" id="location" name="location" 
+                                   value="{{ user.location if user.location else '' }}" 
+                                   maxlength="100" 
+                                   placeholder="Where are you from?">
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="mb-3">
-      <label class="form-label">Bio</label>
-      <textarea class="form-control" name="bio" rows="3" placeholder="Tell people about yourself...">{{ user.get('bio', '') }}</textarea>
-    </div>
-    <button class="btn btn-green">Save</button>
-  </form>
+</div>
+
+<script>
+// Theme toggle functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const themeToggle = document.getElementById('themeToggle');
+    const html = document.documentElement;
+    const isDark = html.getAttribute('data-bs-theme') === 'dark';
+    
+    // Update button text and icon
+    if (themeToggle) {
+        const icon = themeToggle.querySelector('i');
+        if (isDark) {
+            icon.className = 'bi bi-sun-fill';
+            themeToggle.innerHTML = '<i class="bi bi-sun-fill"></i> Light Mode';
+        } else {
+            icon.className = 'bi bi-moon-fill';
+            themeToggle.innerHTML = '<i class="bi bi-moon-fill"></i> Dark Mode';
+        }
+    }
+});
+</script>
 {% endblock %}

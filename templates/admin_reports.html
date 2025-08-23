@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Reported Posts</h2>
+            
+            {% if not reports %}
+                <div class="alert alert-info">
+                    No pending reports. The community is clean! 🎉
+                </div>
+            {% else %}
+                {% for report in reports %}
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <div>
+                            Reported by: 
+                            <a href="{{ url_for('user_profile', username=report.reporter.username) }}">
+                                @{{ report.reporter.username }}
+                            </a>
+                            <span class="text-muted small ms-2">
+                                {{ report.reported_at|time_ago if report.reported_at else 'Recently' }}
+                            </span>
+                            {% if report.reason %}
+                            <div class="mt-1">
+                                <strong>Reason:</strong> {{ report.reason }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="btn-group">
+                            <form method="POST" action="{{ url_for('handle_report', report_id=report._id) }}" class="d-inline">
+                                <button type="submit" name="action" value="dismiss" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-x-lg"></i> Dismiss
+                                </button>
+                                <button type="submit" name="action" value="delete" class="btn btn-sm btn-danger"
+                                    onclick="return confirm('Are you sure you want to delete this post? This cannot be undone.');">
+                                    <i class="bi bi-trash"></i> Delete Post
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <strong>Post by:</strong>
+                            <a href="{{ url_for('user_profile', username=report.post.author) }}">
+                                @{{ report.post.author }}
+                            </a>
+                            <span class="text-muted small ms-2">
+                                {{ report.post.created_at|time_ago if report.post.created_at else '' }}
+                            </span>
+                        </div>
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                {{ report.post.content }}
+                                {% if report.post.media_url %}
+                                    <div class="mt-2">
+                                        <img src="{{ report.post.media_url }}" class="img-fluid" alt="Post media">
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-secondary">
+                                    <i class="bi bi-flag"></i> Reported
+                                </span>
+                                <span class="ms-2">
+                                    {{ report.reason or 'No reason provided' }}
+                                </span>
+                            </div>
+                            <a href="{{ url_for('index', _anchor='post-' + report.post._id|string) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> View Post
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

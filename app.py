@@ -3,6 +3,7 @@ from pymongo import MongoClient, ASCENDING
 from bson import ObjectId
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
+import os
 
 app = Flask(__name__)
 app.secret_key = "supersecret"
@@ -16,12 +17,14 @@ users_col = db["users"]
 posts_col = db["posts"]
 follows_col = db["follows"]
 notifications_col = db["notifications"]
+reports_col = db["reports"]  # Add reports collection
 
 # Ensure useful indexes (idempotent)
 try:
     users_col.create_index([("username", ASCENDING)], unique=True)
     follows_col.create_index([("follower_id", ASCENDING), ("followee_id", ASCENDING)], unique=True)
     posts_col.create_index([("created_at", ASCENDING)])
+    reports_col.create_index([("post_id", ASCENDING), ("reported_by", ASCENDING)], unique=True)  # Add index for reports
 except Exception:
     # Index creation failures shouldn't crash the app in dev
     pass
@@ -34,7 +37,10 @@ DEFAULT_BADGES = {
     'admin': False
 }
 
-def time_ago(dt):
+def format_time_ago(dt):
+    if dt is None:
+        return ""
+        
     from datetime import datetime, timezone
 
     # If dt has no tzinfo, assume UTC
@@ -54,8 +60,8 @@ def time_ago(dt):
     else:
         return f"{int(seconds//86400)}d ago"
 
-
-app.jinja_env.globals.update(time_ago=time_ago)
+# Register the filter
+app.jinja_env.filters['time_ago'] = format_time_ago
 
 ALLOWED_EMOJIS = {"❤️","🔥","😂","👍","🌱"}
 
@@ -73,6 +79,39 @@ def _is_following(follower_id: ObjectId, followee_id: ObjectId) -> bool:
     return follows_col.find_one({"follower_id": follower_id, "followee_id": followee_id}) is not None
 
 @app.context_processor
+def inject_globals():
+    def get_user_preferences(username):
+        if not username:
+            return {'dark_mode': False}
+        user = users_col.find_one(
+            {"username": username},
+            {"dark_mode": 1, "badges": 1, "_id": 0}
+        )
+        return user or {'dark_mode': False}
+    
+    # Get user data if logged in
+    user = None
+    notification_count = 0
+    if 'user_id' in session:
+        user = users_col.find_one({"_id": _current_user_id()})
+        notification_count = notifications_col.count_documents({
+            'to_user_id': ObjectId(session['user_id']),
+            'read': False
+        })
+    
+    return {
+        'get_user_preferences': get_user_preferences,
+        'current_user': session.get('username'),
+        'user': user,  # Add full user object to template context
+        'notification_count': {'unread_notifications_count': notification_count},
+        'users_col': users_col,
+        'posts_col': posts_col,
+        'follows_col': follows_col,
+        'notifications_col': notifications_col,
+        'reports_col': reports_col
+    }
+
+@app.context_processor
 def inject_unread_notifications():
     """Provide unread notifications count to all templates as unread_notifications_count."""
     try:
@@ -84,35 +123,6 @@ def inject_unread_notifications():
     except Exception:
         count = 0
     return {"unread_notifications_count": count}
-
-@app.context_processor
-def inject_globals():
-    def get_user_preferences(username):
-        if not username:
-            return {'dark_mode': False}
-        user = users_col.find_one(
-            {"username": username},
-            {"dark_mode": 1, "badges": 1, "_id": 0}
-        )
-        return user or {'dark_mode': False}
-    
-    # Get notification count if user is logged in
-    notification_count = 0
-    if 'user_id' in session:
-        notification_count = notifications_col.count_documents({
-            'to_user_id': ObjectId(session['user_id']),
-            'read': False
-        })
-    
-    return {
-        'get_user_preferences': get_user_preferences,
-        'current_user': session.get('username'),
-        'notification_count': {'unread_notifications_count': notification_count},
-        'users_col': users_col,
-        'posts_col': posts_col,
-        'follows_col': follows_col,
-        'notifications_col': notifications_col
-    }
 
 @app.route("/")
 def index():
@@ -134,17 +144,31 @@ def register():
             flash("Username already taken")
             return redirect(url_for("register"))
             
+        # Set default badges - admin gets special badge if username is 'Admin'
+        badges = DEFAULT_BADGES.copy()
+        if username.lower() == 'admin':
+            badges.update({
+                'admin': True,
+                'verified': True,
+                'moderator': True
+            })
+            
         user = {
             "username": username,
             "password": password,
             "created_at": datetime.now(timezone.utc),
             "dark_mode": False,
-            "badges": DEFAULT_BADGES.copy(),
+            "badges": badges,
             "bio": "",
-            "avatar_url": ""
+            "location": "",
+            "profile_pic": "default_profile.png",
+            "cover_photo": "default_cover.jpg",
+            "followers": [],
+            "following": []
         }
-        users_col.insert_one(user)
-        session["user_id"] = str(user["_id"])
+        
+        result = users_col.insert_one(user)
+        session["user_id"] = str(result.inserted_id)
         session["username"] = username
         return redirect(url_for("index"))
     return render_template("register.html")
@@ -231,6 +255,14 @@ def user_profile(username):
     if not user:
         flash("User not found")
         return redirect(url_for("index"))
+    
+    # Ensure user has all required fields with default values
+    user.setdefault('profile_pic', 'default_profile.png')
+    user.setdefault('cover_photo', 'default_cover.jpg')
+    user.setdefault('bio', '')
+    user.setdefault('location', '')
+    user.setdefault('badges', {})
+    
     posts = list(posts_col.find({"author": username}).sort("created_at", -1))
     # Compute follow stats
     followers_count = follows_col.count_documents({"followee_id": user["_id"]})
@@ -315,11 +347,32 @@ def settings():
     current_oid = _current_user_id()
     user = users_col.find_one({"_id": current_oid})
     if request.method == "POST":
+        # Get form data
         avatar_url = request.form.get("avatar_url", "").strip()
+        cover_photo = request.form.get("cover_photo", "").strip()
         bio = request.form.get("bio", "").strip()
-        users_col.update_one({"_id": current_oid}, {"$set": {"avatar_url": avatar_url, "bio": bio}})
-        flash("Settings updated")
+        location = request.form.get("location", "").strip()
+        
+        # Update user data
+        update_data = {
+            "avatar_url": avatar_url,
+            "cover_photo": cover_photo,
+            "bio": bio,
+            "location": location
+        }
+        
+        # Remove empty fields to avoid overwriting with empty strings
+        update_data = {k: v for k, v in update_data.items() if v}
+        
+        if update_data:
+            users_col.update_one(
+                {"_id": current_oid},
+                {"$set": update_data}
+            )
+            flash("Settings updated successfully")
+        
         return redirect(url_for("settings"))
+    
     return render_template("settings.html", user=user)
 
 @app.route("/post/delete/<post_id>", methods=["POST"])
@@ -497,6 +550,213 @@ def toggle_dark_mode():
 def view_hashtag(hashtag):
     posts = list(posts_col.find({"hashtags": hashtag.lower()}).sort("created_at", -1))
     return render_template("hashtag.html", hashtag=hashtag, posts=posts)
+
+@app.route("/update_profile", methods=["POST"])
+def update_profile():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+        
+    user = users_col.find_one({"_id": ObjectId(session["user_id"])})
+    if not user:
+        flash("User not found")
+        return redirect(url_for("index"))
+    
+    # Handle file upload for cover photo
+    if 'cover_photo' in request.files:
+        file = request.files['cover_photo']
+        if file.filename != '':
+            # Save the file to the static/uploads directory
+            filename = f"cover_{user['_id']}.jpg"
+            filepath = os.path.join("static", "uploads", filename)
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+            file.save(filepath)
+            # Update user's cover photo path
+            users_col.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"cover_photo": url_for('static', filename=f'uploads/{filename}')}}
+            )
+    
+    # Update location if provided
+    location = request.form.get('location')
+    if location is not None:
+        users_col.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"location": location}}
+        )
+    
+    flash("Profile updated successfully!")
+    return redirect(url_for("user_profile", username=user["username"]))
+
+@app.route("/admin/badges", methods=["GET", "POST"])
+def admin_badges():
+    # Check if user is admin
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    current_user = users_col.find_one({"_id": _current_user_id()})
+    if not current_user.get("badges", {}).get("admin"):
+        flash("Access denied. Admin privileges required.")
+        return redirect(url_for("index"))
+    
+    # Get all available badges from DEFAULT_BADGES
+    available_badges = list(DEFAULT_BADGES.keys()) + ['admin', 'moderator']
+    
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        badge_type = request.form.get("badge_type", "").strip()
+        action = request.form.get("action")
+        
+        if not username or not badge_type or not action:
+            flash("Missing required fields")
+            return redirect(url_for("admin_badges"))
+        
+        user = users_col.find_one({"username": username})
+        if not user:
+            flash(f"User '{username}' not found")
+            return redirect(url_for("admin_badges"))
+        
+        update_data = {}
+        if action == "add":
+            update_data[f"badges.{badge_type}"] = True
+            message = f"Added {badge_type} badge to {username}"
+        elif action == "remove":
+            update_data[f"badges.{badge_type}"] = False
+            message = f"Removed {badge_type} badge from {username}"
+        
+        if update_data:
+            users_col.update_one(
+                {"username": username},
+                {"$set": update_data}
+            )
+            flash(message)
+        
+        return redirect(url_for("admin_badges"))
+    
+    # Get all users with their badges for display
+    all_users = list(users_col.find({}, {"username": 1, "badges": 1}))
+    
+    return render_template(
+        "admin_badges.html",
+        users=all_users,
+        badges=available_badges
+    )
+
+@app.route("/report/post/<post_id>", methods=["POST"])
+def report_post(post_id):
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    post = posts_col.find_one({"_id": ObjectId(post_id)})
+    if not post:
+        flash("Post not found")
+        return redirect(url_for("index"))
+    
+    # Get report reason
+    reason = request.form.get("reason")
+    custom_reason = request.form.get("custom_reason")
+    
+    if custom_reason and custom_reason.strip():
+        reason = f"{reason}: {custom_reason}"
+    
+    # Check if already reported by this user
+    existing_report = reports_col.find_one({
+        "post_id": ObjectId(post_id),
+        "reported_by": _current_user_id()
+    })
+    
+    if not existing_report:
+        reports_col.insert_one({
+            "post_id": ObjectId(post_id),
+            "reported_by": _current_user_id(),
+            "reported_at": datetime.now(timezone.utc),
+            "status": "pending",
+            "reason": reason,
+            "handled_by": None,
+            "handled_at": None
+        })
+        flash("Post has been reported. Thank you for keeping the community safe!")
+    else:
+        flash("You have already reported this post")
+    
+    return redirect(request.referrer or url_for("index"))
+
+@app.route("/admin/reports")
+def admin_reports():
+    # Check if user is admin
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    current_user = users_col.find_one({"_id": _current_user_id()})
+    if not current_user.get("badges", {}).get("admin"):
+        flash("Access denied. Admin privileges required.")
+        return redirect(url_for("index"))
+    
+    # Get all reports with reporter and post information
+    reports = []
+    for report in reports_col.find().sort("reported_at", -1):
+        reporter = users_col.find_one({"_id": report["reported_by"]}, {"username": 1})
+        post = posts_col.find_one({"_id": report["post_id"]})
+        if reporter and post:  # Only include reports where both reporter and post exist
+            report_data = {
+                "_id": report["_id"],
+                "reporter": {"username": reporter["username"]},
+                "reported_at": report["reported_at"],
+                "reason": report["reason"],
+                "status": report["status"],
+                "post": {
+                    "_id": str(post["_id"]),
+                    "content": post["content"],
+                    "author": post["author"],
+                    "created_at": post["created_at"]
+                }
+            }
+            reports.append(report_data)
+    
+    return render_template("admin_reports.html", reports=reports, is_admin=True)
+
+@app.route("/admin/handle_report/<report_id>", methods=["POST"])
+def handle_report(report_id):
+    # Check if user is admin
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    
+    current_user = users_col.find_one({"_id": _current_user_id()})
+    if not current_user.get("badges", {}).get("admin"):
+        flash("Access denied. Admin privileges required.")
+        return redirect(url_for("index"))
+    
+    action = request.form.get("action")
+    report = reports_col.find_one({"_id": ObjectId(report_id)})
+    
+    if not report:
+        flash("Report not found")
+        return redirect(url_for("admin_reports"))
+    
+    if action == "dismiss":
+        reports_col.update_one(
+            {"_id": ObjectId(report_id)},
+            {"$set": {
+                "status": "dismissed",
+                "handled_by": _current_user_id(),
+                "handled_at": datetime.now(timezone.utc)
+            }}
+        )
+        flash("Report has been dismissed")
+    elif action == "delete":
+        # Delete the reported post
+        posts_col.delete_one({"_id": report["post_id"]})
+        # Update report status
+        reports_col.update_one(
+            {"_id": ObjectId(report_id)},
+            {"$set": {
+                "status": "deleted",
+                "handled_by": _current_user_id(),
+                "handled_at": datetime.now(timezone.utc)
+            }}
+        )
+        flash("Post has been deleted")
+    
+    return redirect(url_for("admin_reports"))
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=1000)

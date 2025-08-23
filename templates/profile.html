@@ -1,39 +1,210 @@
 {% extends 'base.html' %}
 {% block content %}
-  <div class="d-flex align-items-center mb-3">
-    <img src="{{ user.get('avatar_url') or 'https://via.placeholder.com/64x64.png?text=%F0%9F%8C%B1' }}" alt="avatar" class="rounded-circle me-3" width="64" height="64">
-    <div>
-      <h3 class="mb-0">{{ user['username'] }}</h3>
-      <small class="text-muted">{{ user.get('bio', '') }}</small>
-      <div>
-        <span class="me-3"><strong>{{ followers_count }}</strong> Followers</span>
-        <span class="me-3"><strong>{{ following_count }}</strong> Following</span>
-      </div>
-    </div>
-    <div class="ms-auto">
-      {% if 'user_id' in session and session['username'] != user['username'] %}
-        {% if is_following %}
-          <form action="{{ url_for('unfollow_user', username=user['username']) }}" method="post">
-            <button class="btn btn-outline-secondary btn-sm">Unfollow</button>
-          </form>
-        {% else %}
-          <form action="{{ url_for('follow_user', username=user['username']) }}" method="post">
-            <button class="btn btn-green btn-sm">Follow</button>
-          </form>
+  <!-- Cover Photo with Update Button -->
+  <div class="card mb-4 shadow-sm">
+    <div class="card-img-top position-relative" style="height: 200px; background-color: #4CAF50; display: flex; align-items: center; justify-content: center;">
+      {% if user.get('cover_photo') %}
+        <img src="{{ user.cover_photo }}" 
+             alt="Cover photo" 
+             class="w-100 h-100" 
+             style="object-fit: cover;">
+      {% else %}
+        <div style="color: white; font-size: 24px; font-weight: bold;">TouchGrass</div>
+      {% endif %}
+      {% if 'user_id' in session %}
+        {% if session['username'] == user['username'] %}
+          <div class="position-absolute top-0 end-0 m-2">
+            <button type="button" class="btn btn-sm btn-outline-light" data-bs-toggle="modal" data-bs-target="#updateCoverModal">
+              <i class="bi bi-camera"></i> Update Cover
+            </button>
+          </div>
         {% endif %}
       {% endif %}
     </div>
-  </div>
-
-  <hr>
-  {% for post in posts %}
-    <div class="card mb-3 shadow-sm">
-      <div class="card-body">
-        <p>{{ post['content'] }}</p>
-        <small class="text-muted">{{ time_ago(post['created_at']) }}</small>
+    <div class="card-body position-relative">
+      <!-- Profile Picture -->
+      <div class="d-flex align-items-start">
+        <div class="position-relative" style="margin-top: -75px; margin-bottom: 15px;">
+          <img src="{{ user.get('avatar_url', url_for('static', filename='default_profile.png')) }}" 
+               class="rounded-circle border border-4 border-white" 
+               width="150" 
+               height="150"
+               style="object-fit: cover;"
+               alt="{{ user['username'] }}">
+        </div>
+        
+        <!-- User Info -->
+        <div class="ms-4 flex-grow-1">
+          <div class="d-flex align-items-center mb-2">
+            <h3 class="mb-0 me-2">{{ user['username'] }}</h3>
+            {% if user.get('badges', {}) %}
+              <div class="d-flex">
+                {% for badge, has_badge in user['badges'].items() %}
+                  {% if has_badge %}
+                    <span class="badge {% if badge == 'admin' %}bg-danger{% else %}bg-primary{% endif %} me-1" 
+                          data-bs-toggle="tooltip" 
+                          title="{{ badge.replace('_', ' ').title() }}">
+                      {{ badge|title }}
+                    </span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
+          </div>
+          
+          <div class="mb-3">
+            {% if user.get('location') %}
+              <p class="text-muted mb-2">
+                <i class="bi bi-geo-alt-fill"></i> {{ user['location'] }}
+                {% if 'user_id' in session %}
+                  {% if session['username'] == user['username'] %}
+                    <button type="button" class="btn btn-sm btn-link p-0 ms-2" data-bs-toggle="modal" data-bs-target="#editLocationModal">
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                  {% endif %}
+                {% endif %}
+              </p>
+            {% elif 'user_id' in session %}
+              {% if session['username'] == user['username'] %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editLocationModal">
+                  <i class="bi bi-plus"></i> Add Location
+                </button>
+              {% endif %}
+            {% endif %}
+            
+            {% if user.get('bio') %}
+              <p class="mb-3">{{ user['bio'] }}</p>
+            {% endif %}
+          </div>
+          
+          <div class="d-flex align-items-center mb-3">
+            <a href="#" class="text-decoration-none text-dark me-4">
+              <strong>{{ posts|length }}</strong> Posts
+            </a>
+            <a href="#" class="text-decoration-none text-dark me-4">
+              <strong>{{ followers_count }}</strong> Followers
+            </a>
+            <a href="#" class="text-decoration-none text-dark">
+              <strong>{{ following_count }}</strong> Following
+            </a>
+          </div>
+          
+          {% if 'user_id' in session %}
+            {% if session['username'] == user['username'] %}
+              <a href="{{ url_for('settings') }}" class="btn btn-outline-secondary btn-sm">
+                Edit Profile
+              </a>
+            {% else %}
+              {% if is_following %}
+                <form action="{{ url_for('unfollow_user', username=user['username']) }}" method="post" class="d-inline">
+                  <button class="btn btn-outline-secondary btn-sm">Unfollow</button>
+                </form>
+              {% else %}
+                <form action="{{ url_for('follow_user', username=user['username']) }}" method="post" class="d-inline">
+                  <button class="btn btn-green btn-sm">Follow</button>
+                </form>
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        </div>
       </div>
     </div>
-  {% else %}
-    <p>No posts yet 🌱</p>
-  {% endfor %}
+  </div>
+
+  <!-- Edit Location Modal -->
+  {% if 'user_id' in session %}
+    {% if session['username'] == user['username'] %}
+      <div class="modal fade" id="editLocationModal" tabindex="-1" aria-labelledby="editLocationModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="editLocationModalLabel">Update Location</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('update_profile') }}" method="post">
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="location" class="form-label">Location</label>
+                  <input type="text" class="form-control" id="location" name="location" value="{{ user.get('location', '') }}" placeholder="Enter your location">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Update Cover Photo Modal -->
+      <div class="modal fade" id="updateCoverModal" tabindex="-1" aria-labelledby="updateCoverModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title" id="updateCoverModalLabel">Update Cover Photo</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('update_profile') }}" method="post" enctype="multipart/form-data">
+              <div class="modal-body">
+                <div class="mb-3">
+                  <label for="cover_photo" class="form-label">Choose a cover photo</label>
+                  <input class="form-control" type="file" id="cover_photo" name="cover_photo" accept="image/*">
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Upload</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <!-- User Posts -->
+  <div class="row">
+    {% if posts %}
+      {% for post in posts %}
+        <div class="col-md-6 col-lg-4 mb-4">
+          <div class="card h-100 shadow-sm">
+            <div class="card-body">
+              <p class="card-text">{{ post['content'] }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-top-0">
+              <small class="text-muted">{{ post['created_at']|time_ago if post['created_at'] else '' }}</small>
+              {% if post.get('hashtags') %}
+                <div class="mt-2">
+                  {% for tag in post['hashtags'] %}
+                    <a href="{{ url_for('view_hashtag', hashtag=tag) }}" class="text-decoration-none">
+                      <span class="badge bg-light text-dark">#{{ tag }}</span>
+                    </a>
+                  {% endfor %}
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="col-12 text-center py-5">
+        <div class="display-4 text-muted mb-3">🌱</div>
+        <h4>No posts yet</h4>
+        <p class="text-muted">When {{ user['username'] }} shares something, you'll see it here.</p>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Initialize tooltips
+  document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+  });
+</script>
 {% endblock %}

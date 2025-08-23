@@ -1,5 +1,5 @@
 {% for post in posts %}
-<div class="card mb-3 shadow-sm post-item">
+<div class="card mb-3 shadow-sm post-item" id="post-{{ post['_id'] }}">
   <div class="card-header d-flex justify-content-between align-items-center">
     <div>
       <a href="{{ url_for('user_profile', username=post['author']) }}" class="text-decoration-none">
@@ -8,7 +8,7 @@
           <span class="badge bg-primary">✓</span>
         {% endif %}
       </a>
-      <small class="text-muted"> • {{ time_ago(post['created_at']) }}</small>
+      <small class="text-muted"> • {{ post['created_at']|time_ago if post['created_at'] else '' }}</small>
     </div>
     {% if 'user_id' in session and post['author'] == session['username'] %}
     <div class="btn-group">
@@ -32,15 +32,75 @@
     {% endif %}
     
     <!-- Reactions -->
-    <div class="mt-3">
-      {% for emoji in ['❤️','🔥','😂','👍','🌱'] %}
-      <form action="{{ url_for('react', post_id=post['_id'], emoji=emoji) }}" method="post" class="d-inline">
-        <button type="submit" class="btn btn-sm btn-outline-secondary me-1">
-          {{ emoji }} {{ post['reactions'].get(emoji, 0) }}
+    <div class="mt-3 d-flex justify-content-between align-items-center">
+      <div>
+        {% for emoji in ['❤️','🔥','😂','👍','🌱'] %}
+        <form action="{{ url_for('react', post_id=post['_id'], emoji=emoji) }}" method="post" class="d-inline">
+          <button type="submit" class="btn btn-sm btn-outline-secondary me-1">
+            {{ emoji }} {{ post['reactions'].get(emoji, 0) }}
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% if 'user_id' in session and post['author'] != session['username'] %}
+      <div>
+        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reportModal{{ post['_id'] }}">
+          <i class="bi bi-flag"></i> Report
         </button>
-      </form>
-      {% endfor %}
+      </div>
+      {% endif %}
     </div>
+
+    <!-- Report Modal -->
+    {% if 'user_id' in session and post['author'] != session['username'] %}
+    <div class="modal fade" id="reportModal{{ post['_id'] }}" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form action="{{ url_for('report_post', post_id=post['_id']) }}" method="post">
+            <div class="modal-header">
+              <h5 class="modal-title" id="reportModalLabel">Report Post</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <p>Why are you reporting this post?</p>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="reason" id="spam{{ post['_id'] }}" value="Spam" checked>
+                <label class="form-check-label" for="spam{{ post['_id'] }}">
+                  Spam
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="reason" id="inappropriate{{ post['_id'] }}" value="Inappropriate Content">
+                <label class="form-check-label" for="inappropriate{{ post['_id'] }}">
+                  Inappropriate Content
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="reason" id="harassment{{ post['_id'] }}" value="Harassment">
+                <label class="form-check-label" for="harassment{{ post['_id'] }}">
+                  Harassment or Bullying
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="reason" id="other{{ post['_id'] }}" value="Other">
+                <label class="form-check-label" for="other{{ post['_id'] }}">
+                  Other
+                </label>
+              </div>
+              <div class="mt-2">
+                <label for="customReason{{ post['_id'] }}" class="form-label">Additional details (optional):</label>
+                <textarea class="form-control" id="customReason{{ post['_id'] }}" name="custom_reason" rows="2"></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-danger">Report</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     
     <!-- Comments -->
     <div class="mt-3">

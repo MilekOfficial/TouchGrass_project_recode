@@ -17,7 +17,7 @@
             <span class="badge bg-primary">✓</span>
           {% endif %}
         </a>
-        <small class="text-muted"> • {{ time_ago(post['created_at']) }}</small>
+        <small class="text-muted"> • {{ post['created_at']|time_ago if post['created_at'] else '' }}</small>
       </div>
       {% if 'user_id' in session and post['author'] == session['username'] %}
       <div class="btn-group">

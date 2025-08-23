@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Manage User Badges</h2>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4>Assign/Remove Badges</h4>
+                </div>
+                <div class="card-body">
+                    <form method="POST" class="row g-3">
+                        <div class="col-md-4">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="badge_type" class="form-label">Badge Type</label>
+                            <select class="form-select" id="badge_type" name="badge_type" required>
+                                {% for badge in badges %}
+                                    <option value="{{ badge }}">{{ badge|title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Action</label>
+                            <div class="d-flex">
+                                <button type="submit" name="action" value="add" class="btn btn-success me-2">
+                                    <i class="bi bi-plus-circle"></i> Add Badge
+                                </button>
+                                <button type="submit" name="action" value="remove" class="btn btn-danger">
+                                    <i class="bi bi-dash-circle"></i> Remove Badge
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h4>Current Users and Their Badges</h4>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                {% for badge in badges %}
+                                    <th class="text-center">{{ badge|title }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    {% for badge in badges %}
+                                        <td class="text-center">
+                                            {% if user.badges.get(badge, False) %}
+                                                <span class="badge bg-success">✓</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">✗</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

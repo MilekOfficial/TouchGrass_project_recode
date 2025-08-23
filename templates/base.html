@@ -136,6 +136,10 @@
                   {{ session['username'] }}
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                  {% if user.badges and user.badges.get('admin') %}
+                  <li><a class="dropdown-item" href="{{ url_for('admin_reports') }}">Admin Reports</a></li>
+                  <li><hr class="dropdown-divider"></li>
+                  {% endif %}
                   <li><a class="dropdown-item" href="{{ url_for('settings') }}">Settings</a></li>
                   <li><hr class="dropdown-divider"></li>
                   <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
