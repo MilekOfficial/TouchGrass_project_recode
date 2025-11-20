@@ -206,8 +206,9 @@
       document.addEventListener('DOMContentLoaded', function() {
         // Convert hashtags to links
         document.querySelectorAll('.post-content, .comment-text').forEach(element => {
+          const unicodeHashtag = new RegExp('#([\\p{L}\\p{N}_]+)', 'gu');
           element.innerHTML = element.innerHTML.replace(
-            /#(\w+)/g, 
+            unicodeHashtag,
             '<a href="/hashtag/$1" class="text-decoration-none">#$1</a>'
           );
         });

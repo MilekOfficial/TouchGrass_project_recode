@@ -4,7 +4,9 @@ from bson import ObjectId
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
 import os
+import re
 from dotenv import load_dotenv
+import unicodedata
 
 # Load environment variables from .env file
 load_dotenv()
@@ -165,8 +167,8 @@ def register():
             "badges": badges,
             "bio": "",
             "location": "",
-            "profile_pic": "default_profile.png",
-            "cover_photo": "default_cover.jpg",
+            "profile_pic": "https://t3.ftcdn.net/jpg/16/22/17/64/360_F_1622176441_HhmUdRSNrwjLjUaOisFuBN9ZUdwoNk2K.jpg",
+            "cover_photo": "https://i.postimg.cc/mrBrFDHS/cover.png",
             "followers": [],
             "following": []
         }
@@ -213,7 +215,8 @@ def post():
                 image_url = upload_result['url']
     
     # Extract hashtags
-    hashtags = list(set(part[1:] for part in content.split() if part.startswith('#')))
+    hashtag_pattern = re.compile(r"(?<!\w)#([\w]+)", flags=re.UNICODE)
+    hashtags = list({unicodedata.normalize('NFC', m.group(1)).lower() for m in hashtag_pattern.finditer(content)})
     
     post_data = {
         "author": session["username"],
@@ -363,14 +366,15 @@ def settings():
     user = users_col.find_one({"_id": current_oid})
     if request.method == "POST":
         # Get form data
-        avatar_url = request.form.get("avatar_url", "").strip()
+        # Accept both profile_pic and legacy avatar_url
+        profile_pic = (request.form.get("profile_pic") or request.form.get("avatar_url") or "").strip()
         cover_photo = request.form.get("cover_photo", "").strip()
         bio = request.form.get("bio", "").strip()
         location = request.form.get("location", "").strip()
         
         # Update user data
         update_data = {
-            "avatar_url": avatar_url,
+            "profile_pic": profile_pic,
             "cover_photo": cover_photo,
             "bio": bio,
             "location": location
@@ -382,7 +386,7 @@ def settings():
         if update_data:
             users_col.update_one(
                 {"_id": current_oid},
-                {"$set": update_data}
+                {"$set": update_data, "$inc": {"profile_version": 1}}
             )
             flash("Settings updated successfully")
         
@@ -426,9 +430,11 @@ def edit_post(post_id):
             
         if request.method == "POST":
             new_content = request.form["content"]
+            hashtag_pattern = re.compile(r"(?<!\w)#([\w]+)", flags=re.UNICODE)
+            new_hashtags = list({unicodedata.normalize('NFC', m.group(1)).lower() for m in hashtag_pattern.finditer(new_content)})
             posts_col.update_one(
                 {"_id": oid},
-                {"$set": {"content": new_content, "edited_at": datetime.now(timezone.utc)}}
+                {"$set": {"content": new_content, "hashtags": new_hashtags, "edited_at": datetime.now(timezone.utc)}}
             )
             flash("Post updated successfully")
             return redirect(url_for("index"))
@@ -563,7 +569,10 @@ def toggle_dark_mode():
 
 @app.route("/hashtag/<hashtag>")
 def view_hashtag(hashtag):
-    posts = list(posts_col.find({"hashtags": hashtag.lower()}).sort("created_at", -1))
+    # Case-insensitive match to support legacy posts that stored mixed-case hashtags
+    tag = unicodedata.normalize('NFC', (hashtag or "").strip())
+    pattern = f"^{re.escape(tag)}$"
+    posts = list(posts_col.find({"hashtags": {"$regex": pattern, "$options": "i"}}).sort("created_at", -1))
     return render_template("hashtag.html", hashtag=hashtag, posts=posts)
 
 @app.route("/update_profile", methods=["POST"])
@@ -610,7 +619,7 @@ def update_profile():
     if update_data:
         users_col.update_one(
             {"_id": user["_id"]},
-            {"$set": update_data}
+            {"$set": update_data, "$inc": {"profile_version": 1}}
         )
         flash("Profile updated successfully!")
     

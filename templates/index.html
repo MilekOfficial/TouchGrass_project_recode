@@ -93,8 +93,9 @@ function insertEmoji(emoji) {
 document.addEventListener('DOMContentLoaded', function() {
   // Initial conversion for static content
   document.querySelectorAll('.post-content, .comment-text').forEach(element => {
+    const unicodeHashtag = new RegExp('#([\\p{L}\\p{N}_]+)', 'gu');
     element.innerHTML = element.innerHTML.replace(
-      /#(\w+)/g, 
+      unicodeHashtag,
       '<a href="/hashtag/$1" class="text-decoration-none">#$1</a>'
     );
   });
@@ -105,8 +106,9 @@ document.addEventListener('DOMContentLoaded', function() {
       mutation.addedNodes.forEach(function(node) {
         if (node.nodeType === 1) { // Element node
           node.querySelectorAll('.post-content, .comment-text').forEach(element => {
+            const unicodeHashtag = new RegExp('#([\\p{L}\\p{N}_]+)', 'gu');
             element.innerHTML = element.innerHTML.replace(
-              /#(\w+)/g, 
+              unicodeHashtag,
               '<a href="/hashtag/$1" class="text-decoration-none">#$1</a>'
             );
           });

@@ -14,3 +14,6 @@
   border-radius: 50%;
   box-shadow: 0 0 0 2px #ffffff; /* ring to separate from button */
 }
+[data-bs-theme="dark"] .d-flex.align-items-center.mb-3 > a {
+  color: #ffffff !important;
+}

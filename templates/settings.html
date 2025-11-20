@@ -7,9 +7,8 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h3 class="mb-0">Profile Settings</h3>
-                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleDarkMode()" id="themeToggle">
-                        <i class="bi bi-moon-fill"></i> Dark Mode
-                    </button>
+
+                    
                 </div>
                 <div class="card-body">
                     <form method="POST">
@@ -34,7 +33,7 @@
                         <!-- Profile Picture -->
                         <div class="d-flex align-items-center mb-4">
                             <div class="position-relative" style="width: 100px; height: 100px;">
-                                <img src="{{ user.avatar_url if user.avatar_url else url_for('static', filename='default_profile.png') }}" 
+                                <img src="{{ user.profile_pic if user.profile_pic else url_for('static', filename='default_profile.png') }}" 
                                      class="rounded-circle border border-3 border-white" 
                                      style="width: 100%; height: 100%; object-fit: cover;"
                                      id="profilePreview">
@@ -55,9 +54,9 @@
 
                         <!-- Profile Picture URL -->
                         <div class="mb-3">
-                            <label for="avatar_url" class="form-label">Profile Picture URL</label>
-                            <input type="url" class="form-control" id="avatar_url" name="avatar_url" 
-                                   value="{{ user.avatar_url if user.avatar_url else '' }}" 
+                            <label for="profile_pic" class="form-label">Profile Picture URL</label>
+                            <input type="url" class="form-control" id="profile_pic" name="profile_pic" 
+                                   value="{{ user.profile_pic if user.profile_pic else '' }}" 
                                    placeholder="https://example.com/avatar.jpg"
                                    oninput="document.getElementById('profilePreview').src = this.value || '{{ url_for('static', filename='default_profile.png') }}'">
                             <div class="form-text">Paste a direct image URL for your profile picture</div>

@@ -15,12 +15,10 @@
             {% for user in users %}
             <a href="{{ url_for('user_profile', username=user.username) }}" class="list-group-item list-group-item-action">
                 <div class="d-flex align-items-center">
-                    {% if user.avatar_url %}
-                    <img src="{{ user.avatar_url }}" alt="{{ user.username }}" class="rounded-circle me-3" width="40" height="40">
+                    {% if user.profile_pic %}
+                    <img src="{{ user.profile_pic }}" alt="{{ user.username }}" class="rounded-circle me-3" width="40" height="40" style="object-fit: cover;">
                     {% else %}
-                    <div class="rounded-circle bg-secondary me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; color: white;">
-                        {{ user.username[0]|upper }}
-                    </div>
+                    <img src="{{ url_for('static', filename='default_profile.png') }}" alt="{{ user.username }}" class="rounded-circle me-3" width="40" height="40" style="object-fit: cover;">
                     {% endif %}
                     <div>
                         <h6 class="mb-0">{{ user.username }}</h6>
@@ -47,7 +45,19 @@
                 </div>
             </div>
             <div class="card-body">
-                <p>{{ post['content'] }}</p>
+                <p class="post-content">{{ post['content'] }}</p>
+                {% if post.get('image_url') %}
+                <div class="mt-2 mb-3">
+                    <img src="{{ post.image_url }}" alt="Post image" class="img-fluid rounded" style="max-height: 400px; width: auto; max-width: 100%;">
+                </div>
+                {% endif %}
+                {% if post.get('hashtags') %}
+                <div class="mt-2">
+                    {% for tag in post['hashtags'] %}
+                    <a href="{{ url_for('view_hashtag', hashtag=tag) }}" class="badge bg-info text-decoration-none">#{{ tag }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
                 <div class="mt-2">
                     <a href="{{ url_for('index') }}#post-{{ post['_id'] }}" class="btn btn-sm btn-outline-primary">
                         View Post

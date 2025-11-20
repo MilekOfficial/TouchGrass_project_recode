@@ -31,6 +31,13 @@
     <div class="card-body">
       <p class="post-content">{{ post['content'] }}</p>
       
+      <!-- Post Image -->
+      {% if post.get('image_url') %}
+      <div class="mt-2 mb-3">
+        <img src="{{ post.image_url }}" alt="Post image" class="img-fluid rounded" style="max-height: 400px; width: auto; max-width: 100%;">
+      </div>
+      {% endif %}
+      
       <!-- Hashtags -->
       {% if post.get('hashtags') %}
       <div class="mt-2">
