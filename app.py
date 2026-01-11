@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from pymongo import MongoClient, ASCENDING
 from bson import ObjectId
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -24,6 +24,7 @@ posts_col = db["posts"]
 follows_col = db["follows"]
 notifications_col = db["notifications"]
 reports_col = db["reports"]  # Add reports collection
+kanban_col = db["kanban_items"]  # Kanban items per user
 
 # Ensure useful indexes (idempotent)
 try:
@@ -31,6 +32,8 @@ try:
     follows_col.create_index([("follower_id", ASCENDING), ("followee_id", ASCENDING)], unique=True)
     posts_col.create_index([("created_at", ASCENDING)])
     reports_col.create_index([("post_id", ASCENDING), ("reported_by", ASCENDING)], unique=True)  # Add index for reports
+    # Kanban indexes for fast lookups and ordering
+    kanban_col.create_index([("user_id", ASCENDING), ("status", ASCENDING), ("position", ASCENDING)])
 except Exception:
     # Index creation failures shouldn't crash the app in dev
     pass
@@ -114,7 +117,8 @@ def inject_globals():
         'posts_col': posts_col,
         'follows_col': follows_col,
         'notifications_col': notifications_col,
-        'reports_col': reports_col
+        'reports_col': reports_col,
+        'kanban_col': kanban_col
     }
 
 @app.context_processor
@@ -795,6 +799,113 @@ def handle_report(report_id):
         flash("Post has been deleted")
     
     return redirect(url_for("admin_reports"))
+
+# -------------------- Kanban Board --------------------
+
+def _require_login_json():
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    return None
+
+@app.route("/kanban")
+def kanban_page():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    return render_template("kanban.html")
+
+@app.route("/api/kanban/items", methods=["GET", "POST"])
+def kanban_items():
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_oid = _current_user_id()
+
+    if request.method == "GET":
+        items = list(kanban_col.find({"user_id": user_oid}).sort([("status", ASCENDING), ("position", ASCENDING)]))
+        for it in items:
+            it["_id"] = str(it["_id"])
+            it["user_id"] = str(it["user_id"])
+        return jsonify(items)
+
+    # POST create new item
+    data = request.get_json(force=True, silent=True) or {}
+    title = (data.get("title") or "").strip()
+    description = (data.get("description") or "").strip()
+    status = data.get("status") or "todo"
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    # determine next position in column
+    last = kanban_col.find({"user_id": user_oid, "status": status}).sort("position", -1).limit(1)
+    next_pos = 0
+    for doc in last:
+        next_pos = int(doc.get("position", 0)) + 1
+    doc = {
+        "user_id": user_oid,
+        "title": title,
+        "description": description,
+        "status": status,
+        "position": next_pos,
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
+    }
+    res = kanban_col.insert_one(doc)
+    doc["_id"] = str(res.inserted_id)
+    doc["user_id"] = str(user_oid)
+    return jsonify(doc), 201
+
+@app.route("/api/kanban/items/<item_id>", methods=["PATCH", "DELETE"])
+def kanban_item_detail(item_id):
+    if "user_id" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    user_oid = _current_user_id()
+    try:
+        oid = ObjectId(item_id)
+    except Exception:
+        return jsonify({"error": "Invalid id"}), 400
+
+    item = kanban_col.find_one({"_id": oid, "user_id": user_oid})
+    if not item:
+        return jsonify({"error": "Not found"}), 404
+
+    if request.method == "DELETE":
+        kanban_col.delete_one({"_id": oid, "user_id": user_oid})
+        return "", 204
+
+    # PATCH update fields; allow moving columns and reordering
+    data = request.get_json(force=True, silent=True) or {}
+    updates = {}
+    allowed = {"title", "description", "status", "position"}
+    for k in allowed:
+        if k in data:
+            updates[k] = data[k]
+
+    # If status changes, and no explicit position provided, append to end of new column
+    if "status" in updates and updates["status"] != item.get("status") and "position" not in updates:
+        last = kanban_col.find({"user_id": user_oid, "status": updates["status"]}).sort("position", -1).limit(1)
+        next_pos = 0
+        for doc in last:
+            next_pos = int(doc.get("position", 0)) + 1
+        updates["position"] = next_pos
+
+    if updates:
+        updates["updated_at"] = datetime.now(timezone.utc)
+        kanban_col.update_one({"_id": oid, "user_id": user_oid}, {"$set": updates})
+
+    # Optional bulk reorder support
+    reorder = data.get("reorder")
+    if isinstance(reorder, list):
+        # Expect list of {id, position} for items in same status column
+        for r in reorder:
+            try:
+                rid = ObjectId(r.get("id"))
+            except Exception:
+                continue
+            pos = int(r.get("position", 0))
+            kanban_col.update_one({"_id": rid, "user_id": user_oid}, {"$set": {"position": pos, "updated_at": datetime.now(timezone.utc)}})
+
+    updated = kanban_col.find_one({"_id": oid, "user_id": user_oid})
+    updated["_id"] = str(updated["_id"])
+    updated["user_id"] = str(updated["user_id"])
+    return jsonify(updated)
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=1000)

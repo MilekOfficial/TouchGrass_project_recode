@@ -17,3 +17,96 @@
 [data-bs-theme="dark"] .d-flex.align-items-center.mb-3 > a {
   color: #ffffff !important;
 }
+
+/* Kanban board styles */
+.kanban-board {
+  min-height: 60vh;
+}
+.kanban-column {
+  background: rgba(0,0,0,0.03);
+  border-radius: 8px;
+  padding: 8px;
+}
+[data-bs-theme="dark"] .kanban-column {
+  background: rgba(255,255,255,0.05);
+}
+.kanban-column-header {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.kanban-dropzone {
+  min-height: 50vh;
+  border: 2px dashed rgba(0,0,0,0.1);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+}
+[data-bs-theme="dark"] .kanban-dropzone {
+  border-color: rgba(255,255,255,0.15);
+}
+.kanban-card.dragging {
+  opacity: 0.6;
+}
+
+/* Post-it note styles */
+.postit {
+  position: relative;
+  display: block;
+  padding: 12px 36px 14px 14px;
+  border-radius: 0;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.12);
+  cursor: grab;
+  transform: none;
+  width: 180px;
+  height: 180px;
+  box-sizing: border-box;
+}
+.postit:active { cursor: grabbing; }
+.postit .postit-body { font-size: 0.95rem; line-height: 1.2; height: 100%; overflow: auto; text-align: center; }
+.postit .fw-semibold { font-weight: 600; }
+
+/* subtle random tilt variants could be added by JS if desired */
+
+.postit-yellow { background: #fff6a5; }
+.postit-blue { background: #cfe9ff; }
+.postit-green { background: #dff7c8; }
+
+/* dark mode tweaks */
+[data-bs-theme="dark"] .postit-yellow { background: #5a540d; color: #fff; }
+[data-bs-theme="dark"] .postit-blue { background: #13324d; color: #e8f4ff; }
+[data-bs-theme="dark"] .postit-green { background: #1f3b1a; color: #eaffea; }
+
+.postit-tape {
+  content: "";
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(0deg);
+  width: 48px;
+  height: 16px;
+  background: rgba(255,255,255,0.7);
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+[data-bs-theme="dark"] .postit-tape {
+  background: rgba(255,255,255,0.2);
+}
+
+.postit-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: rgba(0,0,0,0.45);
+  line-height: 1;
+}
+.postit-delete:hover { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.7); }
+[data-bs-theme="dark"] .postit-delete { color: rgba(255,255,255,0.6); }
+[data-bs-theme="dark"] .postit-delete:hover { background: rgba(255,255,255,0.1); color: #fff; }

@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex align-items-center mb-3">
+  <h2 class="me-auto">Kanban Board</h2>
+  <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTaskModal">+ New Task</button>
+</div>
+
+<!-- Add Task Modal -->
+<div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addTaskModalLabel">Add New Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-item-form" class="row g-3">
+          <div class="col-12">
+            <label for="new-title" class="form-label">Title</label>
+            <input type="text" class="form-control" id="new-title" placeholder="Task title" required>
+          </div>
+          <div class="col-12">
+            <label for="new-desc" class="form-label">Description</label>
+            <textarea class="form-control" id="new-desc" rows="3" placeholder="Optional description"></textarea>
+          </div>
+          <div class="col-12">
+            <label for="new-status" class="form-label">Status</label>
+            <select id="new-status" class="form-select">
+              <option value="todo">To Do</option>
+              <option value="inprogress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+          <div class="col-12 d-grid">
+            <button type="submit" class="btn btn-success">Add Task</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 kanban-board">
+  <div class="col-md-4">
+    <div class="kanban-column" data-status="todo">
+      <div class="kanban-column-header">To Do</div>
+      <div class="kanban-dropzone" id="col-todo"></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kanban-column" data-status="inprogress">
+      <div class="kanban-column-header">In Progress</div>
+      <div class="kanban-dropzone" id="col-inprogress"></div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="kanban-column" data-status="done">
+      <div class="kanban-column-header">Done</div>
+      <div class="kanban-dropzone" id="col-done"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const apiBase = '/api/kanban/items';
+  const columns = {
+    todo: document.getElementById('col-todo'),
+    inprogress: document.getElementById('col-inprogress'),
+    done: document.getElementById('col-done')
+  };
+
+  function getNoteClass(status) {
+    switch (status) {
+      case 'inprogress': return 'postit-blue';
+      case 'done': return 'postit-green';
+      default: return 'postit-yellow';
+    }
+  }
+
+  function applyNoteClass(el, status) {
+    el.classList.remove('postit-yellow', 'postit-blue', 'postit-green');
+    el.classList.add(getNoteClass(status));
+  }
+
+  function createCard(item) {
+    const card = document.createElement('div');
+    card.className = `kanban-card postit mb-2 ${getNoteClass(item.status)}`;
+    card.draggable = true;
+    card.dataset.id = item._id;
+    card.innerHTML = `
+      <div class="postit-tape"></div>
+      <div class="postit-body">
+        <div class="fw-semibold mb-1">${escapeHtml(item.title)}</div>
+        ${item.description ? `<div class="text-muted small">${escapeHtml(item.description)}</div>` : ''}
+      </div>
+      <button class="postit-delete" title="Delete" data-action="delete">&times;</button>
+    `;
+
+    card.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', item._id);
+      e.dataTransfer.effectAllowed = 'move';
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+
+    card.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+      if (!confirm('Delete this task?')) return;
+      await fetch(`${apiBase}/${item._id}`, { method: 'DELETE' });
+      card.remove();
+      // reindex positions in its column
+      persistPositions(card.parentElement);
+    });
+
+    return card;
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','\"':'&quot;'}[c]));
+  }
+
+  function wireDropzone(zone) {
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const afterElement = getDragAfterElement(zone, e.clientY);
+      const dragging = document.querySelector('.dragging');
+      if (!dragging) return;
+      if (afterElement == null) {
+        zone.appendChild(dragging);
+      } else {
+        zone.insertBefore(dragging, afterElement);
+      }
+    });
+
+    zone.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData('text/plain');
+      const status = zone.closest('.kanban-column').dataset.status;
+      const position = [...zone.children].findIndex(el => el.dataset && el.dataset.id === id);
+      await fetch(`${apiBase}/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, position })
+      });
+      // Update the moved card's color class to match new status immediately
+      const moved = [...zone.children].find(el => el.dataset && el.dataset.id === id);
+      if (moved) applyNoteClass(moved, status);
+      persistPositions(zone); // normalize ordering
+    });
+  }
+
+  async function persistPositions(zone) {
+    const status = zone.closest('.kanban-column').dataset.status;
+    const payload = [];
+    [...zone.children].forEach((el, idx) => {
+      if (el.dataset && el.dataset.id) {
+        payload.push({ id: el.dataset.id, position: idx });
+      }
+    });
+    if (payload.length === 0) return;
+    // Update in bulk by hitting the first item and passing reorder list
+    await fetch(`${apiBase}/${payload[0].id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reorder: payload, status })
+    });
+  }
+
+  function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.kanban-card:not(.dragging)')];
+    return draggableElements.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset: offset, element: child };
+      } else {
+        return closest;
+      }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+  }
+
+  async function loadItems() {
+    const res = await fetch(apiBase);
+    if (!res.ok) return;
+    const items = await res.json();
+    // clear columns
+    Object.values(columns).forEach(col => col.innerHTML = '');
+    // group by status and sort by position
+    items.sort((a,b) => (a.status || '').localeCompare(b.status || '') || (a.position||0)-(b.position||0));
+    for (const it of items) {
+      const col = columns[it.status] || columns.todo;
+      col.appendChild(createCard(it));
+    }
+  }
+
+  document.getElementById('add-item-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('new-title').value.trim();
+    const description = document.getElementById('new-desc').value.trim();
+    const status = document.getElementById('new-status').value;
+    if (!title) return;
+    const res = await fetch(apiBase, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description, status })
+    });
+    if (res.ok) {
+      document.getElementById('new-title').value = '';
+      document.getElementById('new-desc').value = '';
+      document.getElementById('new-status').value = 'todo';
+      // Close modal after successful add
+      const modalEl = document.getElementById('addTaskModal');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.hide();
+      }
+      await loadItems();
+    }
+  });
+
+  // init
+  Object.values(columns).forEach(wireDropzone);
+  loadItems();
+})();
+</script>
+{% endblock %}

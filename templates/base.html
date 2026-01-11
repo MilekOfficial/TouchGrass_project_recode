@@ -120,6 +120,10 @@
                 {% endif %}
               </a>
             </li>
+            <li class="nav-item">
+              <a class="nav-link {{ 'active' if request.endpoint == 'kanban_page' }}" 
+                 href="{{ url_for('kanban_page') }}">Kanban</a>
+            </li>
             {% endif %}
           </ul>
           <form class="d-flex me-2" action="{{ url_for('search') }}" method="GET">
