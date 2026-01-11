@@ -1,0 +1,95 @@
+<div>
+  <div class="d-flex justify-content-between align-items-start mb-2">
+    <div>
+      <a href="{{ url_for('user_profile', username=post['author']) }}" class="text-decoration-none">
+        <strong>{{ post['author'] }}</strong>
+        {% if post.get('author_badges', {}).get('verified') %}
+          <span class="badge bg-primary">✓</span>
+        {% endif %}
+      </a>
+      <small class="text-muted"> • {{ post['created_at']|time_ago if post['created_at'] else '' }}</small>
+    </div>
+  </div>
+
+  <p class="post-content">{{ post['content'] }}</p>
+
+  {% if post.get('image_url') %}
+  <div class="mt-2 mb-3">
+    <img src="{{ post.image_url }}" alt="Post image" class="img-fluid rounded" style="max-height: 400px; width: auto; max-width: 100%;" data-action="view-image">
+  </div>
+  {% endif %}
+
+  {% if post.get('hashtags') %}
+  <div class="mt-2">
+    {% for tag in post['hashtags'] %}
+    <a href="{{ url_for('view_hashtag', hashtag=tag) }}" class="badge bg-info text-decoration-none">#{{ tag }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="mt-3 d-flex justify-content-between align-items-center">
+    <div class="text-muted small">{{ post.get('comments', [])|length }} comments</div>
+
+    {% if 'user_id' in session and post['author'] != session['username'] %}
+    <button class="btn btn-sm btn-outline-danger" type="button" data-bs-toggle="collapse" data-bs-target="#reportCollapse{{ post['_id'] }}" aria-expanded="false" aria-controls="reportCollapse{{ post['_id'] }}">
+      <i class="bi bi-flag"></i> Report
+    </button>
+    {% endif %}
+  </div>
+
+  {% if 'user_id' in session and post['author'] != session['username'] %}
+  <div class="collapse mt-2" id="reportCollapse{{ post['_id'] }}">
+    <form action="{{ url_for('report_post', post_id=post['_id']) }}" method="post" class="border rounded p-2">
+      <div class="mb-2"><strong>Why are you reporting this post?</strong></div>
+
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="reason" id="spam{{ post['_id'] }}" value="Spam" checked>
+        <label class="form-check-label" for="spam{{ post['_id'] }}">Spam</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="reason" id="inappropriate{{ post['_id'] }}" value="Inappropriate Content">
+        <label class="form-check-label" for="inappropriate{{ post['_id'] }}">Inappropriate Content</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="reason" id="harassment{{ post['_id'] }}" value="Harassment">
+        <label class="form-check-label" for="harassment{{ post['_id'] }}">Harassment or Bullying</label>
+      </div>
+      <div class="form-check">
+        <input class="form-check-input" type="radio" name="reason" id="other{{ post['_id'] }}" value="Other">
+        <label class="form-check-label" for="other{{ post['_id'] }}">Other</label>
+      </div>
+
+      <div class="mt-2">
+        <label for="customReason{{ post['_id'] }}" class="form-label">Additional details (optional):</label>
+        <textarea class="form-control" id="customReason{{ post['_id'] }}" name="custom_reason" rows="2"></textarea>
+      </div>
+
+      <div class="mt-2 d-flex justify-content-end">
+        <button type="submit" class="btn btn-danger btn-sm">Submit report</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  <hr>
+
+  <div class="mt-2">
+    {% for comment in post.get('comments', []) %}
+    <div class="mb-2">
+      <strong>{{ comment['username'] }}</strong>: <span class="comment-text">{{ comment['text'] }}</span>
+      {% if comment.get('edited') %}<small class="text-muted"> (edited)</small>{% endif %}
+    </div>
+    {% else %}
+    <div class="text-muted">No comments yet.</div>
+    {% endfor %}
+
+    {% if 'user_id' in session %}
+    <form action="{{ url_for('comment', post_id=post['_id']) }}" method="post" class="mt-3">
+      <div class="input-group">
+        <input type="text" name="comment" class="form-control" placeholder="Add a comment..." required>
+        <button type="submit" class="btn btn-outline-primary">Post</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+</div>

@@ -59,7 +59,7 @@
                 </div>
                 {% endif %}
                 <div class="mt-2">
-                    <a href="{{ url_for('index') }}#post-{{ post['_id'] }}" class="btn btn-sm btn-outline-primary">
+                    <a href="{{ url_for('index') }}#post-{{ post['_id'] }}" class="btn btn-sm btn-outline-primary" data-action="view-post" data-post-id="{{ post['_id'] }}">
                         View Post
                     </a>
                 </div>

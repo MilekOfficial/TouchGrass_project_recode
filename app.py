@@ -269,7 +269,7 @@ def comment(post_id):
         "username": session["username"],
         "text": text
     }}})
-    return redirect(url_for("index"))
+    return redirect(request.referrer or url_for("index"))
 
 @app.route("/user/<username>")
 def user_profile(username):
@@ -554,6 +554,27 @@ def search():
         posts=post_results,
         users=user_results
     )
+
+@app.route("/modal/post/<post_id>")
+def modal_post(post_id):
+    try:
+        oid = ObjectId(post_id)
+    except Exception:
+        return "Invalid post id", 400
+
+    post = posts_col.find_one({"_id": oid})
+    if not post:
+        return "Post not found", 404
+
+    post["reactions"] = post.get("reactions", {})
+    for emoji in ["❤️", "🔥", "😂", "👍", "🌱"]:
+        post["reactions"].setdefault(emoji, 0)
+    post["comments"] = post.get("comments", [])
+
+    author = users_col.find_one({"username": post.get("author")}, {"badges": 1, "_id": 0})
+    post["author_badges"] = (author or {}).get("badges", {})
+
+    return render_template("_post_modal.html", post=post)
 
 @app.route("/toggle_dark_mode", methods=["POST"])
 def toggle_dark_mode():
