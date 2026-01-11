@@ -928,5 +928,47 @@ def kanban_item_detail(item_id):
     updated["user_id"] = str(updated["user_id"])
     return jsonify(updated)
 
+
+def _wants_json() -> bool:
+    if request.path.startswith("/api/"):
+        return True
+    best = request.accept_mimetypes.best
+    return best == "application/json" and request.accept_mimetypes[best] > request.accept_mimetypes["text/html"]
+
+
+@app.errorhandler(400)
+def bad_request(error):
+    if _wants_json():
+        return jsonify({"error": "Bad Request"}), 400
+    return render_template("400.html"), 400
+
+
+@app.errorhandler(401)
+def unauthorized(error):
+    if _wants_json():
+        return jsonify({"error": "Unauthorized"}), 401
+    return render_template("401.html"), 401
+
+
+@app.errorhandler(403)
+def forbidden(error):
+    if _wants_json():
+        return jsonify({"error": "Forbidden"}), 403
+    return render_template("403.html"), 403
+
+
+@app.errorhandler(404)
+def not_found(error):
+    if _wants_json():
+        return jsonify({"error": "Not Found"}), 404
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def internal_server_error(error):
+    if _wants_json():
+        return jsonify({"error": "Internal Server Error"}), 500
+    return render_template("500.html"), 500
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=1000)
