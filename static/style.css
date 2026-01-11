@@ -110,3 +110,19 @@
 .postit-delete:hover { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.7); }
 [data-bs-theme="dark"] .postit-delete { color: rgba(255,255,255,0.6); }
 [data-bs-theme="dark"] .postit-delete:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* Infinite Scroll status visibility */
+.scroller-status .infinite-scroll-request,
+.scroller-status .infinite-scroll-last,
+.scroller-status .infinite-scroll-error {
+  display: none;
+}
+.scroller-status.is-loading .infinite-scroll-request {
+  display: block;
+}
+.scroller-status.is-last .infinite-scroll-last {
+  display: block;
+}
+.scroller-status.is-error .infinite-scroll-error {
+  display: block;
+}

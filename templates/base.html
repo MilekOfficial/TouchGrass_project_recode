@@ -76,19 +76,6 @@
           );
         });
       }
-
-      // Initialize infinite scroll
-      document.addEventListener('DOMContentLoaded', function() {
-        const postContainer = document.querySelector('.infinite-scroll');
-        if (postContainer) {
-          new InfiniteScroll(postContainer, {
-            path: '.pagination__next',
-            append: '.post-item',
-            status: '.scroller-status',
-            history: false,
-          });
-        }
-      });
     </script>
   </head>
   <body>
@@ -169,26 +156,8 @@
           {% endfor %}
         {% endif %}
       {% endwith %}
-      
-      <div class="infinite-scroll">
-        {% block content %}{% endblock %}
-        
-        <!-- Infinite scroll pagination -->
-        {% if has_next_page %}
-        <div class="d-none">
-          <a class="pagination__next" href="{{ next_page_url }}"></a>
-        </div>
-        <div class="scroller-status">
-          <div class="infinite-scroll-request text-center my-4">
-            <div class="spinner-border" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-          </div>
-          <p class="infinite-scroll-last text-muted text-center my-4">No more posts to load</p>
-          <p class="infinite-scroll-error text-muted text-center my-4">No more posts to load</p>
-        </div>
-        {% endif %}
-      </div>
+
+      {% block content %}{% endblock %}
     </div>
 
     <div class="modal fade" id="postViewModal" tabindex="-1" aria-hidden="true">
