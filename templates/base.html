@@ -81,64 +81,98 @@
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container">
-        <a class="navbar-brand" href="{{ url_for('index') }}">
-          <img src="{{ url_for('static', filename='Logo.png') }}" alt="TouchGrass Logo" class="img-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
+          <img src="{{ url_for('static', filename='Logo.png') }}" alt="TouchGrass Logo" class="img-fluid me-2">
           <span>TouchGrass</span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
           <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
+          <!-- Main Navigation -->
           <ul class="navbar-nav me-auto">
             <li class="nav-item">
-              <a class="nav-link {{ 'active' if request.endpoint == 'index' }}" href="{{ url_for('index') }}">Home</a>
+              <a class="nav-link {{ 'active' if request.endpoint == 'index' }} d-flex align-items-center" href="{{ url_for('index') }}">
+                <i class="bi bi-house-door me-1"></i> Home
+              </a>
             </li>
             {% if 'user_id' in session %}
             <li class="nav-item">
-              <a class="nav-link {{ 'active' if request.endpoint == 'user_profile' and request.args.get('username') == session['username'] }}" 
-                 href="{{ url_for('user_profile', username=session['username']) }}">Profile</a>
+              <a class="nav-link {{ 'active' if request.endpoint == 'user_profile' and request.args.get('username') == session['username'] }} d-flex align-items-center" 
+                 href="{{ url_for('user_profile', username=session['username']) }}">
+                <i class="bi bi-person me-1"></i> Profile
+              </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link {{ 'active' if request.endpoint == 'notifications' }}" 
+              <a class="nav-link {{ 'active' if request.endpoint == 'notifications' }} d-flex align-items-center position-relative" 
                  href="{{ url_for('notifications') }}">
-                Notifications
+                <i class="bi bi-bell me-1"></i> Notifications
                 {% if notification_count.unread_notifications_count > 0 %}
-                  <span class="badge bg-danger">{{ notification_count.unread_notifications_count }}</span>
+                  <span class="badge bg-danger position-absolute top-0 start-100 translate-middle" style="font-size: 0.6em;">{{ notification_count.unread_notifications_count }}</span>
                 {% endif %}
               </a>
             </li>
             <li class="nav-item">
-              <a class="nav-link {{ 'active' if request.endpoint == 'kanban_page' }}" 
-                 href="{{ url_for('kanban_page') }}">Kanban</a>
+              <a class="nav-link {{ 'active' if request.endpoint == 'kanban_page' }} d-flex align-items-center" 
+                 href="{{ url_for('kanban_page') }}">
+                <i class="bi bi-kanban me-1"></i> Kanban
+              </a>
             </li>
             {% endif %}
           </ul>
-          <form class="d-flex me-2" action="{{ url_for('search') }}" method="GET">
-            <input class="form-control me-2" type="search" name="q" placeholder="Search..." aria-label="Search">
-            <button class="btn btn-outline-light" type="submit">Search</button>
-          </form>
-          <div class="d-flex align-items-center">
-            <button class="btn btn-outline-light me-2" onclick="toggleDarkMode()">
+          
+          <!-- Right Side Controls -->
+          <div class="d-flex align-items-center gap-2">
+            <!-- Search Bar -->
+            <form class="d-flex" action="{{ url_for('search') }}" method="GET">
+              <div class="input-group">
+                <input class="form-control" type="search" name="q" placeholder="Search..." aria-label="Search" style="min-width: 200px; border-right: none;">
+                <button class="btn btn-outline-light" type="submit" style="border-left: none;">
+                  <i class="bi bi-search"></i>
+                </button>
+              </div>
+            </form>
+            
+            <!-- Theme Toggle -->
+            <button class="btn btn-outline-light d-flex align-items-center justify-content-center" onclick="toggleDarkMode()" title="Toggle Dark Mode" style="width: 40px; height: 40px;">
               <i class="bi {{ 'bi-moon-stars' if 'user_id' in session and get_user_preferences(session['username']).get('dark_mode', False) else 'bi-sun' }}"></i>
             </button>
+            
+            <!-- User Menu -->
             {% if 'user_id' in session %}
               <div class="dropdown">
-                <button class="btn btn-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                  {{ session['username'] }}
+                <button class="btn btn-light dropdown-toggle d-flex align-items-center" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-person-circle me-2"></i>
+                  <span>{{ session['username'] }}</span>
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                  <li><h6 class="dropdown-header">Account</h6></li>
+                  <li><a class="dropdown-item d-flex align-items-center" href="{{ url_for('user_profile', username=session['username']) }}">
+                    <i class="bi bi-person me-2"></i> My Profile
+                  </a></li>
+                  <li><a class="dropdown-item d-flex align-items-center" href="{{ url_for('settings') }}">
+                    <i class="bi bi-gear me-2"></i> Settings
+                  </a></li>
                   {% if user.badges and user.badges.get('admin') %}
-                  <li><a class="dropdown-item" href="{{ url_for('admin_reports') }}">Admin Reports</a></li>
                   <li><hr class="dropdown-divider"></li>
+                  <li><h6 class="dropdown-header">Admin</h6></li>
+                  <li><a class="dropdown-item d-flex align-items-center" href="{{ url_for('admin_reports') }}">
+                    <i class="bi bi-shield-check me-2"></i> Admin Reports
+                  </a></li>
                   {% endif %}
-                  <li><a class="dropdown-item" href="{{ url_for('settings') }}">Settings</a></li>
                   <li><hr class="dropdown-divider"></li>
-                  <li><a class="dropdown-item" href="{{ url_for('logout') }}">Logout</a></li>
+                  <li><a class="dropdown-item text-danger d-flex align-items-center" href="{{ url_for('logout') }}">
+                    <i class="bi bi-box-arrow-right me-2"></i> Logout
+                  </a></li>
                 </ul>
               </div>
             {% else %}
-              <a href="{{ url_for('login') }}" class="btn btn-light me-2">Login</a>
-              <a href="{{ url_for('register') }}" class="btn btn-outline-light">Register</a>
+              <a href="{{ url_for('login') }}" class="btn btn-light d-flex align-items-center">
+                <i class="bi bi-box-arrow-in-right me-1"></i> Login
+              </a>
+              <a href="{{ url_for('register') }}" class="btn btn-outline-light d-flex align-items-center">
+                <i class="bi bi-person-plus me-1"></i> Register
+              </a>
             {% endif %}
           </div>
         </div>

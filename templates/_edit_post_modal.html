@@ -1,0 +1,50 @@
+<!-- Edit Post Modal -->
+<div class="modal fade" id="editPostModal" tabindex="-1" aria-labelledby="editPostModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="editPostForm" method="post" enctype="multipart/form-data">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editPostModalLabel">Edit Post</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editPostId" name="post_id">
+          
+          <div class="form-group mb-3">
+            <label for="editContent" class="form-label">Content:</label>
+            <textarea class="form-control" id="editContent" name="content" rows="4" required></textarea>
+            <small class="form-text text-muted">Use #hashtags to categorize your post</small>
+          </div>
+          
+          <!-- Current Image Display -->
+          <div id="currentImageSection" class="mb-3 d-none">
+            <label class="form-label">Current Image:</label>
+            <div class="d-flex align-items-center">
+              <img id="currentImage" src="#" alt="Current image" class="img-thumbnail me-3" style="max-height: 150px;">
+              <div>
+                <button type="button" class="btn btn-sm btn-danger" onclick="removeCurrentImage()">Remove Image</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Image Upload Field -->
+          <div class="mb-3">
+            <label for="editPostImage" class="form-label">Upload new image (optional):</label>
+            <input class="form-control" type="file" id="editPostImage" name="post_image" accept="image/*">
+            <div class="form-text">Max size: 10MB. Supported formats: JPG, PNG, GIF</div>
+            <div id="editImagePreview" class="mt-2 d-none">
+              <img id="editPreviewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 200px;">
+              <button type="button" class="btn btn-sm btn-danger mt-2" onclick="clearEditImage()">Remove New Image</button>
+            </div>
+          </div>
+          
+          <input type="hidden" id="removeImageFlag" name="remove_image" value="false">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Update Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

@@ -40,6 +40,42 @@
   </div>
 </div>
 
+<!-- Edit Task Modal -->
+<div class="modal fade" id="editTaskModal" tabindex="-1" aria-labelledby="editTaskModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editTaskModalLabel">Edit Task</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="edit-item-form" class="row g-3">
+          <input type="hidden" id="edit-item-id">
+          <div class="col-12">
+            <label for="edit-title" class="form-label">Title</label>
+            <input type="text" class="form-control" id="edit-title" placeholder="Task title" required>
+          </div>
+          <div class="col-12">
+            <label for="edit-desc" class="form-label">Description</label>
+            <textarea class="form-control" id="edit-desc" rows="3" placeholder="Optional description"></textarea>
+          </div>
+          <div class="col-12">
+            <label for="edit-status" class="form-label">Status</label>
+            <select id="edit-status" class="form-select">
+              <option value="todo">To Do</option>
+              <option value="inprogress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+          <div class="col-12 d-grid">
+            <button type="submit" class="btn btn-primary">Update Task</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="row g-3 kanban-board">
   <div class="col-md-4">
     <div class="kanban-column" data-status="todo">
@@ -94,6 +130,9 @@
         <div class="fw-semibold mb-1">${escapeHtml(item.title)}</div>
         ${item.description ? `<div class="text-muted small">${escapeHtml(item.description)}</div>` : ''}
       </div>
+      <button class="postit-edit" title="Edit" data-action="edit" style="position: absolute; top: 5px; right: 25px; background: rgba(0,0,0,0.1); border: none; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.2s;">
+        <i class="bi bi-pencil" style="font-size: 12px;"></i>
+      </button>
       <button class="postit-delete" title="Delete" data-action="delete">&times;</button>
     `;
 
@@ -104,15 +143,37 @@
     });
     card.addEventListener('dragend', () => card.classList.remove('dragging'));
 
+    // Edit button
+    card.querySelector('[data-action="edit"]').addEventListener('click', () => {
+      openEditModal(item);
+    });
+
+    // Show edit button on hover
+    card.addEventListener('mouseenter', () => {
+      card.querySelector('.postit-edit').style.opacity = '1';
+    });
+    card.addEventListener('mouseleave', () => {
+      card.querySelector('.postit-edit').style.opacity = '0';
+    });
+
     card.querySelector('[data-action="delete"]').addEventListener('click', async () => {
       if (!confirm('Delete this task?')) return;
       await fetch(`${apiBase}/${item._id}`, { method: 'DELETE' });
       card.remove();
-      // reindex positions in its column
       persistPositions(card.parentElement);
     });
 
     return card;
+  }
+
+  function openEditModal(item) {
+    document.getElementById('edit-item-id').value = item._id;
+    document.getElementById('edit-title').value = item.title || '';
+    document.getElementById('edit-desc').value = item.description || '';
+    document.getElementById('edit-status').value = item.status || 'todo';
+    
+    const modal = new bootstrap.Modal(document.getElementById('editTaskModal'));
+    modal.show();
   }
 
   function escapeHtml(str) {
@@ -142,10 +203,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status, position })
       });
-      // Update the moved card's color class to match new status immediately
       const moved = [...zone.children].find(el => el.dataset && el.dataset.id === id);
       if (moved) applyNoteClass(moved, status);
-      persistPositions(zone); // normalize ordering
+      persistPositions(zone);
     });
   }
 
@@ -158,7 +218,6 @@
       }
     });
     if (payload.length === 0) return;
-    // Update in bulk by hitting the first item and passing reorder list
     await fetch(`${apiBase}/${payload[0].id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -183,9 +242,7 @@
     const res = await fetch(apiBase);
     if (!res.ok) return;
     const items = await res.json();
-    // clear columns
     Object.values(columns).forEach(col => col.innerHTML = '');
-    // group by status and sort by position
     items.sort((a,b) => (a.status || '').localeCompare(b.status || '') || (a.position||0)-(b.position||0));
     for (const it of items) {
       const col = columns[it.status] || columns.todo;
@@ -208,8 +265,33 @@
       document.getElementById('new-title').value = '';
       document.getElementById('new-desc').value = '';
       document.getElementById('new-status').value = 'todo';
-      // Close modal after successful add
       const modalEl = document.getElementById('addTaskModal');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.hide();
+      }
+      await loadItems();
+    }
+  });
+
+  // Edit item form
+  document.getElementById('edit-item-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('edit-item-id').value;
+    const title = document.getElementById('edit-title').value.trim();
+    const description = document.getElementById('edit-desc').value.trim();
+    const status = document.getElementById('edit-status').value;
+    
+    if (!title || !id) return;
+    
+    const res = await fetch(`${apiBase}/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description, status })
+    });
+    
+    if (res.ok) {
+      const modalEl = document.getElementById('editTaskModal');
       if (modalEl) {
         const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
         modal.hide();

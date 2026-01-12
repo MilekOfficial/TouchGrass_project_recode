@@ -1,0 +1,47 @@
+<!-- New Post Modal -->
+<div class="modal fade" id="newPostModal" tabindex="-1" aria-labelledby="newPostModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="newPostForm" method="post" enctype="multipart/form-data" action="{{ url_for('post') }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="newPostModalLabel">Create New Post</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group mb-3">
+            <label for="newPostContent" class="form-label">What's on your mind?</label>
+            <textarea class="form-control" id="newPostContent" name="content" rows="4" required placeholder="Share your thoughts..."></textarea>
+            <small class="form-text text-muted">Use #hashtags to categorize your post</small>
+          </div>
+          
+          <!-- Emoji Picker -->
+          <div class="mb-3">
+            <label class="form-label">Add an emoji:</label>
+            <div class="emoji-picker">
+              <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertNewPostEmoji('😊')">😊</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertNewPostEmoji('👍')">👍</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertNewPostEmoji('❤️')">❤️</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertNewPostEmoji('😂')">😂</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertNewPostEmoji('🌱')">🌱</button>
+            </div>
+          </div>
+          
+          <!-- Image Upload Field -->
+          <div class="mb-3">
+            <label for="newPostImage" class="form-label">Add an image (optional):</label>
+            <input class="form-control" type="file" id="newPostImage" name="post_image" accept="image/*">
+            <div class="form-text">Max size: 10MB. Supported formats: JPG, PNG, GIF</div>
+            <div id="newPostImagePreview" class="mt-2 d-none">
+              <img id="newPostPreviewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 200px;">
+              <button type="button" class="btn btn-sm btn-danger mt-2" onclick="clearNewPostImage()">Remove Image</button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Post</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

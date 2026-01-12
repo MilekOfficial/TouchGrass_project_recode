@@ -2,38 +2,30 @@
 
 {% block content %}
   {% if 'user_id' in session %}
-  <div class="card mb-4 shadow-sm">
-    <div class="card-body">
-      <form action="{{ url_for('post') }}" method="post" enctype="multipart/form-data">
-        <div class="form-group">
-          <textarea class="form-control" name="content" rows="3" placeholder="What's on your mind?" required></textarea>
-          <small class="form-text text-muted">Use #hashtags to categorize your post</small>
-        </div>
-        
-        <!-- Image Upload Field -->
-        <div class="mb-3">
-          <label for="post_image" class="form-label">Add an image (optional):</label>
-          <input class="form-control" type="file" id="post_image" name="post_image" accept="image/*">
-          <div class="form-text">Max size: 10MB. Supported formats: JPG, PNG, GIF</div>
-          <div id="imagePreview" class="mt-2 d-none">
-            <img id="previewImage" src="#" alt="Preview" class="img-thumbnail" style="max-height: 200px;">
-            <button type="button" class="btn btn-sm btn-danger mt-2" onclick="clearImage()">Remove Image</button>
-          </div>
-        </div>
-        
-        <div class="mt-2 d-flex justify-content-between align-items-center">
-          <div class="emoji-picker">
-            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('😊')">😊</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('👍')">👍</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('❤️')">❤️</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="insertEmoji('😂')">😂</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="insertEmoji('🌱')">🌱</button>
-          </div>
-          <button type="submit" class="btn btn-primary">Post</button>
-        </div>
-      </form>
+  <div class="card mb-4 shadow-sm border-0 bg-gradient">
+    <div class="card-body text-center py-4">
+      <button type="button" class="btn btn-primary btn-lg px-5 py-3 shadow-lg" data-bs-toggle="modal" data-bs-target="#newPostModal" style="background: linear-gradient(135deg, #56e482 0%, #3bb03d 100%); border: none; border-radius: 50px; font-weight: 600; transition: all 0.3s ease;">
+        <i class="bi bi-plus-circle-fill me-2"></i>
+        Create New Post
+      </button>
+      <p class="text-muted mt-3 mb-0 small">Share your thoughts with the community</p>
     </div>
   </div>
+  
+  <style>
+    .bg-gradient {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(86, 228, 130, 0.3) !important;
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+  </style>
   {% endif %}
 
   <div id="posts-container" class="infinite-scroll">
@@ -143,5 +135,102 @@ function clearImage() {
   imagePreview.src = '#';
   imagePreviewContainer.classList.add('d-none');
 }
+
+// New Post Modal JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+  const newPostModal = document.getElementById('newPostModal');
+  const newPostForm = document.getElementById('newPostForm');
+  const newPostImage = document.getElementById('newPostImage');
+  const newPostImagePreview = document.getElementById('newPostImagePreview');
+  const newPostPreviewImage = document.getElementById('newPostPreviewImage');
+
+  // Handle new image upload
+  newPostImage.addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        newPostPreviewImage.src = e.target.result;
+        newPostImagePreview.classList.remove('d-none');
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Handle form submission
+  newPostForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    // Debug: Log form data
+    console.log('Submitting new post form to:', this.action);
+    for (let [key, value] of formData.entries()) {
+      console.log(key, value);
+    }
+    
+    fetch(this.action, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'fetch'
+      },
+      body: formData
+    })
+    .then(response => {
+      console.log('Response status:', response.status);
+      return response.json();
+    })
+    .then(data => {
+      console.log('Response data:', data);
+      if (data.success) {
+        // Close the modal
+        const modal = bootstrap.Modal.getInstance(newPostModal);
+        modal.hide();
+        
+        // Reload the page to show the new post
+        window.location.reload();
+      } else {
+        throw new Error(data.message || 'Failed to create post');
+      }
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      alert('Failed to create post. Please try again.');
+    });
+  });
+
+  // Reset modal when hidden
+  newPostModal.addEventListener('hidden.bs.modal', function() {
+    newPostForm.reset();
+    newPostImagePreview.classList.add('d-none');
+  });
+});
+
+// Helper function to insert emoji in new post modal
+function insertNewPostEmoji(emoji) {
+  const textarea = document.getElementById('newPostContent');
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const before = text.substring(0, start);
+  const after = text.substring(end, text.length);
+  textarea.value = before + emoji + after;
+  textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+  textarea.focus();
+}
+
+// Function to clear new post image preview
+function clearNewPostImage() {
+  const newPostImage = document.getElementById('newPostImage');
+  const newPostImagePreview = document.getElementById('newPostImagePreview');
+  const newPostPreviewImage = document.getElementById('newPostPreviewImage');
+  
+  newPostImage.value = '';
+  newPostImagePreview.classList.add('d-none');
+  newPostPreviewImage.src = '#';
+}
 </script>
 {% endblock %}
+
+<!-- Include New Post Modal -->
+{% include '_new_post_modal.html' %}

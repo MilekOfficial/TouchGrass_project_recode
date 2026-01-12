@@ -21,7 +21,8 @@ def upload_to_imgbb(image_file, filename=None):
         dict: Dictionary containing 'url' and 'delete_url' if successful, None otherwise
     """
     if not IMG_BB_API_KEY:
-        raise ValueError("IMG_BB_API_KEY environment variable not set")
+        print("Warning: IMG_BB_API_KEY not set. Image upload disabled.")
+        return None
     
     if not filename:
         filename = secure_filename(image_file.filename)

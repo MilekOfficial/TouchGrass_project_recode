@@ -204,36 +204,61 @@ def logout():
 @app.route("/post", methods=["POST"])
 def post():
     if "user_id" not in session:
+        if request.headers.get('X-Requested-With') == 'fetch':
+            return jsonify({"success": False, "message": "Unauthorized"})
         return redirect(url_for("login"))
         
-    content = request.form["content"]
-    
-    # Handle image upload
-    image_url = None
-    if 'post_image' in request.files:
-        image_file = request.files['post_image']
-        if image_file.filename != '':
-            from image_utils import upload_to_imgbb
-            upload_result = upload_to_imgbb(image_file)
-            if upload_result:
-                image_url = upload_result['url']
-    
-    # Extract hashtags
-    hashtag_pattern = re.compile(r"(?<!\w)#([\w]+)", flags=re.UNICODE)
-    hashtags = list({unicodedata.normalize('NFC', m.group(1)).lower() for m in hashtag_pattern.finditer(content)})
-    
-    post_data = {
-        "author": session["username"],
-        "content": content,
-        "hashtags": hashtags,
-        "created_at": datetime.now(timezone.utc),
-        "reactions": {},
-        "comments": [],
-        "image_url": image_url  # Add image URL to post data
-    }
-    
-    posts_col.insert_one(post_data)
-    return redirect(url_for("index"))
+    try:
+        content = request.form["content"]
+        
+        # Handle image upload
+        image_url = None
+        if 'post_image' in request.files:
+            image_file = request.files['post_image']
+            if image_file.filename != '':
+                try:
+                    from image_utils import upload_to_imgbb
+                    upload_result = upload_to_imgbb(image_file)
+                    if upload_result:
+                        image_url = upload_result['url']
+                        print(f"Image uploaded successfully: {image_url}")
+                    else:
+                        print("Image upload failed - no result returned")
+                except Exception as img_error:
+                    print(f"Error uploading image: {img_error}")
+                    if request.headers.get('X-Requested-With') == 'fetch':
+                        return jsonify({"success": False, "message": "Failed to upload image"})
+                    flash("Failed to upload image. Please try again.")
+                    return redirect(url_for("index"))
+        
+        # Extract hashtags
+        hashtag_pattern = re.compile(r"(?<!\w)#([\w]+)", flags=re.UNICODE)
+        hashtags = list({unicodedata.normalize('NFC', m.group(1)).lower() for m in hashtag_pattern.finditer(content)})
+        
+        post_data = {
+            "author": session["username"],
+            "content": content,
+            "hashtags": hashtags,
+            "created_at": datetime.now(timezone.utc),
+            "reactions": {},
+            "comments": [],
+            "image_url": image_url
+        }
+        
+        posts_col.insert_one(post_data)
+        
+        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'fetch':
+            return jsonify({"success": True, "message": "Post created successfully"})
+        
+        return redirect(url_for("index"))
+        
+    except Exception as e:
+        print(f"Error creating post: {e}")
+        if request.headers.get('X-Requested-With') == 'fetch':
+            return jsonify({"success": False, "message": "Error creating post"})
+        flash("Error creating post")
+        return redirect(url_for("index"))
 
 @app.route("/react/<post_id>/<emoji>", methods=["POST"])
 def react(post_id, emoji):
@@ -433,15 +458,60 @@ def edit_post(post_id):
             return redirect(url_for("index"))
             
         if request.method == "POST":
-            new_content = request.form["content"]
-            hashtag_pattern = re.compile(r"(?<!\w)#([\w]+)", flags=re.UNICODE)
-            new_hashtags = list({unicodedata.normalize('NFC', m.group(1)).lower() for m in hashtag_pattern.finditer(new_content)})
-            posts_col.update_one(
-                {"_id": oid},
-                {"$set": {"content": new_content, "hashtags": new_hashtags, "edited_at": datetime.now(timezone.utc)}}
-            )
-            flash("Post updated successfully")
-            return redirect(url_for("index"))
+            try:
+                new_content = request.form["content"]
+                hashtag_pattern = re.compile(r"(?<!\w)#([\w]+)", flags=re.UNICODE)
+                new_hashtags = list({unicodedata.normalize('NFC', m.group(1)).lower() for m in hashtag_pattern.finditer(new_content)})
+                
+                # Handle image upload
+                image_url = post.get("image_url")  # Keep existing image by default
+                remove_image = request.form.get("remove_image") == "true"
+                
+                if remove_image:
+                    image_url = None
+                elif 'post_image' in request.files:
+                    image_file = request.files['post_image']
+                    if image_file.filename != '':
+                        try:
+                            from image_utils import upload_to_imgbb
+                            upload_result = upload_to_imgbb(image_file)
+                            if upload_result:
+                                image_url = upload_result['url']
+                                print(f"Image uploaded successfully: {image_url}")
+                            else:
+                                print("Image upload failed - no result returned")
+                        except Exception as img_error:
+                            print(f"Error uploading image: {img_error}")
+                            if request.headers.get('X-Requested-With') == 'fetch':
+                                return jsonify({"success": False, "message": "Failed to upload image"})
+                            flash("Failed to upload image. Please try again.")
+                            return redirect(url_for("index"))
+                
+                update_data = {
+                    "content": new_content, 
+                    "hashtags": new_hashtags, 
+                    "edited_at": datetime.now(timezone.utc)
+                }
+                
+                # Only update image_url if it changed
+                if image_url != post.get("image_url"):
+                    update_data["image_url"] = image_url
+                
+                posts_col.update_one({"_id": oid}, {"$set": update_data})
+                
+                # Check if this is an AJAX request
+                if request.headers.get('X-Requested-With') == 'fetch':
+                    return jsonify({"success": True, "message": "Post updated successfully"})
+                
+                flash("Post updated successfully")
+                return redirect(url_for("index"))
+                
+            except Exception as post_error:
+                print(f"Error updating post: {post_error}")
+                if request.headers.get('X-Requested-With') == 'fetch':
+                    return jsonify({"success": False, "message": "Error updating post"})
+                flash("Error updating post")
+                return redirect(url_for("index"))
             
         return render_template("edit_post.html", post=post)
         
