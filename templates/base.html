@@ -59,6 +59,41 @@
           font-size: 1.1rem;
         }
       }
+      
+      /* Topbar strict alignment */
+      .navbar .navbar-brand,
+      .navbar .nav-link,
+      .navbar .btn,
+      .navbar .dropdown-toggle,
+      .navbar .form-control,
+      .navbar .input-group .btn {
+        height: 40px;
+      }
+      .navbar .nav-link { 
+        padding-top: 0; 
+        padding-bottom: 0; 
+        display: inline-flex; 
+        align-items: center; 
+        gap: .25rem;
+      }
+      .navbar .navbar-brand { padding: 0; }
+      .navbar .navbar-brand img { height: 28px; margin-right: 8px; }
+      .navbar .btn, .navbar .dropdown-toggle { 
+        display: inline-flex; 
+        align-items: center; 
+        justify-content: center; 
+        padding: 0 .625rem; 
+      }
+      .navbar .input-group { height: 40px; }
+      .navbar .input-group .form-control {
+        height: 40px;
+        line-height: 1.2;
+        box-sizing: border-box;
+        padding-top: 0;
+        padding-bottom: 0;
+      }
+      .navbar .input-group .btn { height: 40px; }
+      .navbar .input-group { display: flex; align-items: center; }
     </style>
     <script src="https://unpkg.com/infinite-scroll@4/dist/infinite-scroll.pkgd.min.js"></script>
     <script>
@@ -80,7 +115,7 @@
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-      <div class="container">
+      <div class="container-fluid">
         <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
           <img src="{{ url_for('static', filename='Logo.png') }}" alt="TouchGrass Logo" class="img-fluid me-2">
           <span>TouchGrass</span>
