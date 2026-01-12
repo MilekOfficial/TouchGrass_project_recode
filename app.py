@@ -14,10 +14,9 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key')
 
-# Connect to MongoDB (replace with your own connection string if needed)
-client = MongoClient(
-    "mongodb+srv://server:m0XXrqUMUsqemcLv@cluster0.mi2bcfi.mongodb.net/touchgrass?retryWrites=true&w=majority&appName=Cluster0"
-)
+# Connect to MongoDB
+mongo_uri = os.getenv('MONGO_URI', '')
+client = MongoClient(mongo_uri)
 db = client["touchgrass"]
 users_col = db["users"]
 posts_col = db["posts"]
