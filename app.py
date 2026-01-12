@@ -15,7 +15,10 @@ app = Flask(__name__)
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key')
 
 # Connect to MongoDB
-mongo_uri = os.getenv('MONGO_URI', '')
+mongo_uri = os.getenv('MONGO_URI')
+if not mongo_uri:
+    print("WARNING: MONGO_URI environment variable not set. Using localhost fallback.")
+    mongo_uri = 'mongodb://localhost:27017/touchgrass'
 client = MongoClient(mongo_uri)
 db = client["touchgrass"]
 users_col = db["users"]
