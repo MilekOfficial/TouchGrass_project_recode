@@ -48,6 +48,10 @@ DEFAULT_BADGES = {
     'admin': False
 }
 
+@app.route('/favicon.ico')
+def favicon():
+    return app.send_static_file('favicon.ico')
+
 def format_time_ago(dt):
     if dt is None:
         return ""
